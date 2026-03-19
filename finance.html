@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WittenWeb — حساب الدفع</title>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#05070a; --surface:#0a0e14; --card:#0f1520; --border:#182030; --border-bright:#1e2d40;
+  --gold:#f0b429; --gold-dim:rgba(240,180,41,.1); --green:#10b981; --green-dim:rgba(16,185,129,.1);
+  --red:#ef4444; --red-dim:rgba(239,68,68,.1); --blue:#3b82f6; --text:#e2e8f0; --muted:#4a5568; --muted2:#2d3748;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Cairo',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+#loginScreen{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center;}
+.login-box{background:var(--surface);border:1px solid var(--border-bright);border-radius:16px;padding:3rem 2.5rem;width:100%;max-width:380px;text-align:center;animation:fadeUp .5s ease;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.login-icon{font-size:3.5rem;margin-bottom:1rem;}
+.login-title{font-family:'Bebas Neue',sans-serif;font-size:2.2rem;letter-spacing:4px;color:var(--gold);margin-bottom:.3rem;}
+.login-sub{color:var(--muted);font-size:.85rem;margin-bottom:2rem;line-height:1.5;}
+.pw-input{width:100%;padding:.9rem 1rem;background:var(--card);border:1px solid var(--border-bright);border-radius:8px;color:var(--text);font-family:'Cairo',sans-serif;font-size:1rem;text-align:center;letter-spacing:3px;margin-bottom:1rem;transition:border-color .2s;direction:ltr;}
+.pw-input:focus{outline:none;border-color:var(--gold);}
+.login-btn{width:100%;padding:.9rem;background:var(--gold);color:#000;border:none;border-radius:8px;font-family:'Cairo',sans-serif;font-size:1rem;font-weight:900;cursor:pointer;transition:all .2s;}
+.login-btn:hover{background:#e0a827;transform:translateY(-1px);}
+.login-err{color:var(--red);font-size:.8rem;margin-top:.8rem;display:none;}
+.login-attempts{font-size:.75rem;color:var(--muted);margin-top:.5rem;}
+
+#financeApp{display:none;}
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.header-brand{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;letter-spacing:3px;color:var(--gold);}
+.header-sub{font-size:.75rem;color:var(--muted);}
+.header-links{display:flex;gap:.8rem;}
+.header-link{padding:.4rem .9rem;background:var(--card);border:1px solid var(--border);border-radius:6px;color:var(--muted);text-decoration:none;font-size:.8rem;transition:all .2s;}
+.header-link:hover{color:var(--text);border-color:var(--border-bright);}
+
+.main{max-width:1200px;margin:0 auto;padding:2rem;}
+
+/* BALANCE HERO */
+.balance-hero{background:var(--surface);border:1px solid var(--border-bright);border-radius:16px;padding:2.5rem;margin-bottom:2rem;position:relative;overflow:hidden;text-align:center;}
+.balance-hero::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(240,180,41,.06),transparent 70%);}
+.balance-label{font-size:.85rem;color:var(--muted);letter-spacing:3px;text-transform:uppercase;margin-bottom:1rem;}
+.balance-amount{font-family:'Bebas Neue',sans-serif;font-size:4rem;letter-spacing:4px;color:var(--gold);position:relative;z-index:1;}
+.balance-sub{color:var(--muted);font-size:.8rem;margin-top:.5rem;}
+.balance-row{display:flex;justify-content:center;gap:3rem;margin-top:1.5rem;}
+.bal-stat{text-align:center;}
+.bal-stat-val{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--green);}
+.bal-stat-label{font-size:.72rem;color:var(--muted);}
+
+/* GRID */
+.finance-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2rem;}
+.finance-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+.fc-header{padding:1rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.fc-title{font-weight:700;font-size:.95rem;}
+.fc-body{padding:1.5rem;}
+
+/* FORM */
+.form-group{margin-bottom:1rem;}
+.form-label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:.4rem;font-weight:600;}
+.form-input{width:100%;padding:.75rem 1rem;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:'Cairo',sans-serif;font-size:.9rem;transition:border-color .2s;direction:rtl;}
+.form-input:focus{outline:none;border-color:var(--gold);}
+.form-input[type=number]{direction:ltr;text-align:left;}
+.btn{padding:.75rem 1.2rem;border:none;border-radius:8px;font-family:'Cairo',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;transition:all .2s;width:100%;}
+.btn-gold{background:var(--gold);color:#000;}
+.btn-gold:hover{background:#e0a827;transform:translateY(-1px);}
+.btn-green{background:var(--green);color:#000;}
+.btn-green:hover{background:#0da070;}
+.btn-red{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.3);}
+.btn-red:hover{background:rgba(239,68,68,.2);}
+.btn-blue{background:rgba(59,130,246,.12);color:var(--blue);border:1px solid rgba(59,130,246,.3);}
+.btn-blue:hover{background:rgba(59,130,246,.22);}
+
+/* ACCOUNTS TABLE */
+.acc-table{width:100%;border-collapse:collapse;}
+.acc-table th{padding:.6rem 1rem;text-align:right;font-size:.72rem;color:var(--muted);border-bottom:1px solid var(--border);font-weight:600;}
+.acc-table td{padding:.8rem 1rem;font-size:.83rem;border-bottom:1px solid var(--border);vertical-align:middle;}
+.acc-table tr:last-child td{border-bottom:none;}
+.acc-table tr:hover td{background:var(--card);}
+
+/* TX LIST */
+.tx-item{display:flex;align-items:center;gap:1rem;padding:.8rem 0;border-bottom:1px solid var(--border);}
+.tx-item:last-child{border-bottom:none;}
+.tx-icon{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;}
+.tx-icon.in{background:var(--green-dim);}
+.tx-icon.out{background:var(--red-dim);}
+.tx-icon.transfer{background:var(--gold-dim);}
+.tx-info{flex:1;}
+.tx-name{font-size:.85rem;font-weight:600;}
+.tx-time{font-size:.72rem;color:var(--muted);margin-top:.1rem;}
+.tx-amount{font-weight:700;font-size:.95rem;}
+.tx-amount.in{color:var(--green);}
+.tx-amount.out{color:var(--red);}
+.tx-amount.transfer{color:var(--gold);}
+
+/* SEARCH RESULT */
+.search-result{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-top:.8rem;display:none;}
+.search-result.show{display:block;}
+.sr-name{font-weight:700;margin-bottom:.5rem;}
+.sr-grid{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;}
+.sr-item{font-size:.8rem;color:var(--muted);}
+.sr-val{font-weight:700;color:var(--text);}
+
+.result-msg{padding:.6rem 1rem;border-radius:6px;font-size:.82rem;margin-top:.8rem;display:none;}
+.result-msg.success{background:var(--green-dim);border:1px solid rgba(16,185,129,.3);color:var(--green);}
+.result-msg.error{background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red);}
+.result-msg.show{display:block;}
+
+::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:var(--bg);} ::-webkit-scrollbar-thumb{background:var(--border-bright);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <div class="login-icon">💳</div>
+    <div class="login-title">FINANCE</div>
+    <div class="login-sub">حساب الدفع المركزي<br><span style="color:var(--gold)">WittenWeb</span> — صلاحية المالك فقط</div>
+    <input class="pw-input" type="password" id="financePw" placeholder="••••••••••••" onkeydown="if(event.key==='Enter')checkFinanceLogin()">
+    <button class="login-btn" onclick="checkFinanceLogin()">🔓 دخول حساب الدفع</button>
+    <div class="login-err" id="finLoginErr">❌ كلمة المرور غير صحيحة</div>
+    <div class="login-attempts" id="finAttemptsMsg"></div>
+  </div>
+</div>
+
+<!-- FINANCE APP -->
+<div id="financeApp">
+  <header>
+    <div>
+      <div class="header-brand">💳 FINANCE — WITTENWEB</div>
+      <div class="header-sub" id="finDate"></div>
+    </div>
+    <div class="header-links">
+      <a href="admin.html" class="header-link">🛡️ لوحة المالك</a>
+      <a href="wittenweb.html" class="header-link">🏪 المتجر</a>
+    </div>
+  </header>
+
+  <div class="main">
+    <!-- BALANCE HERO -->
+    <div class="balance-hero">
+      <div class="balance-label">الرصيد الإجمالي — حساب الدفع</div>
+      <div class="balance-amount" id="totalBalance">$0.00</div>
+      <div class="balance-sub">يتحدث تلقائياً من Firebase</div>
+      <div class="balance-row">
+        <div class="bal-stat"><div class="bal-stat-val" id="totalIn">$0</div><div class="bal-stat-label">إجمالي الواردات</div></div>
+        <div class="bal-stat"><div class="bal-stat-val" id="userCount" style="color:var(--blue)">0</div><div class="bal-stat-label">عدد المستخدمين</div></div>
+        <div class="bal-stat"><div class="bal-stat-val" id="totalOut" style="color:var(--red)">$0</div><div class="bal-stat-label">إجمالي المحوّلات</div></div>
+      </div>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="finance-grid">
+
+      <!-- SEARCH ACCOUNT -->
+      <div class="finance-card">
+        <div class="fc-header"><span class="fc-title">🔍 بحث عن حساب</span></div>
+        <div class="fc-body">
+          <div class="form-group">
+            <label class="form-label">بحث بالاسم أو المعرف أو البريد</label>
+            <input class="form-input" type="text" id="searchAccInput" placeholder="اكتب للبحث...">
+          </div>
+          <button class="btn btn-blue" onclick="searchAccount()">🔍 بحث</button>
+          <div class="search-result" id="searchResult">
+            <div class="sr-name" id="srName">—</div>
+            <div class="sr-grid">
+              <div><div class="sr-item">المعرف</div><div class="sr-val" id="srId" style="font-size:.75rem;word-break:break-all">—</div></div>
+              <div><div class="sr-item">البريد</div><div class="sr-val" id="srEmail" style="font-size:.8rem">—</div></div>
+              <div><div class="sr-item">الرصيد</div><div class="sr-val" id="srBal" style="color:var(--gold)">—</div></div>
+              <div><div class="sr-item">المنتجات</div><div class="sr-val" id="srProds">—</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSFER -->
+      <div class="finance-card">
+        <div class="fc-header"><span class="fc-title">💸 تحويل رصيد</span></div>
+        <div class="fc-body">
+          <div class="form-group">
+            <label class="form-label">من حساب (ID)</label>
+            <input class="form-input" type="text" id="transferFrom" placeholder="WW-ABC123..." dir="ltr">
+          </div>
+          <div class="form-group">
+            <label class="form-label">إلى حساب (ID)</label>
+            <input class="form-input" type="text" id="transferTo" placeholder="WW-XYZ456..." dir="ltr">
+          </div>
+          <div class="form-group">
+            <label class="form-label">المبلغ ($)</label>
+            <input class="form-input" type="number" id="transferAmt" placeholder="0.00" min="0.01" step="0.01">
+          </div>
+          <button class="btn btn-gold" onclick="doTransfer()">💸 تنفيذ التحويل</button>
+          <div class="result-msg" id="transferMsg"></div>
+        </div>
+      </div>
+
+      <!-- ADD / ZERO BALANCE -->
+      <div class="finance-card">
+        <div class="fc-header"><span class="fc-title">⚙️ إدارة الرصيد</span></div>
+        <div class="fc-body">
+          <div class="form-group">
+            <label class="form-label">معرف الحساب (ID)</label>
+            <input class="form-input" type="text" id="balMgmtId" placeholder="WW-ABC123..." dir="ltr">
+          </div>
+          <div class="form-group">
+            <label class="form-label">مبلغ الإضافة ($)</label>
+            <input class="form-input" type="number" id="balAddAmt" placeholder="0.00" min="0.01" step="0.01">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+            <button class="btn btn-green" onclick="addBalance()">➕ إضافة رصيد</button>
+            <button class="btn btn-red" onclick="zeroBalanceFinance()">🔴 تصفير</button>
+          </div>
+          <div class="result-msg" id="balMgmtMsg"></div>
+        </div>
+      </div>
+
+      <!-- MAIN FINANCE BALANCE MGMT -->
+      <div class="finance-card">
+        <div class="fc-header"><span class="fc-title">🏦 حساب الدفع الرئيسي</span></div>
+        <div class="fc-body">
+          <div style="text-align:center;margin-bottom:1.5rem;">
+            <div style="font-size:.78rem;color:var(--muted);margin-bottom:.3rem;">الرصيد الحالي</div>
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;color:var(--gold)" id="mainFinBal">$0.00</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">إضافة رصيد للحساب الرئيسي</label>
+            <input class="form-input" type="number" id="mainAddAmt" placeholder="0.00" step="0.01">
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:.8rem;">
+            <button class="btn btn-gold" onclick="addMainBalance()">➕ إضافة</button>
+            <button class="btn btn-red" onclick="zeroMainBalance()">🔴 تصفير</button>
+          </div>
+          <div class="result-msg" id="mainBalMsg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALL ACCOUNTS TABLE -->
+    <div class="finance-card" style="margin-bottom:1.5rem;">
+      <div class="fc-header">
+        <span class="fc-title">👥 رصيد جميع الحسابات</span>
+        <span style="font-size:.78rem;color:var(--muted)" id="totalUsersBalance"></span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="acc-table">
+          <thead><tr><th>#</th><th>الاسم</th><th>المعرف</th><th>الرصيد</th><th>المنتجات</th><th>إجراءات</th></tr></thead>
+          <tbody id="allAccountsBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS LOG -->
+    <div class="finance-card">
+      <div class="fc-header">
+        <span class="fc-title">📜 سجل المعاملات</span>
+        <button onclick="clearTx()" style="padding:.4rem .8rem;background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:5px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:.78rem;">مسح</button>
+      </div>
+      <div style="padding:1rem 1.5rem;" id="txList">
+        <div style="color:var(--muted);text-align:center;padding:2rem">لا توجد معاملات بعد</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, onValue, set, remove, update, push, get }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const FB = { apiKey:"AIzaSyDRCtfuYrEdnuKUsWu_79NC6G_xGLznBJc", authDomain:"tttrt-b8c5a.firebaseapp.com", databaseURL:"https://tttrt-b8c5a-default-rtdb.asia-southeast1.firebasedatabase.app", projectId:"tttrt-b8c5a", storageBucket:"tttrt-b8c5a.firebasestorage.app", messagingSenderId:"975123752593", appId:"1:975123752593:web:e591e930af3a3e29568130" };
+const app = initializeApp(FB);
+const db = getDatabase(app);
+
+const FINANCE_PW = 'Ww$Finance!8Tz3#Qp';
+let finAttempts=0, allUsers={}, allProducts={}, transactions=[], mainBal=0;
+
+window.checkFinanceLogin=function(){
+  const pw=document.getElementById('financePw').value;
+  if(pw===FINANCE_PW){
+    document.getElementById('loginScreen').style.display='none';
+    document.getElementById('financeApp').style.display='block';
+    init();
+  } else {
+    finAttempts++;
+    document.getElementById('finLoginErr').style.display='block';
+    document.getElementById('finAttemptsMsg').textContent=`محاولات فاشلة: ${finAttempts}/5`;
+    if(finAttempts>=5){ document.getElementById('financePw').disabled=true; document.querySelector('.login-btn').disabled=true; document.getElementById('finAttemptsMsg').textContent='🔒 تم القفل'; }
+    setTimeout(()=>document.getElementById('finLoginErr').style.display='none',2000);
+  }
+};
+
+function init(){
+  document.getElementById('finDate').textContent=new Date().toLocaleDateString('ar-SA',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  onValue(ref(db,'users'),s=>{allUsers=s.val()||{};refresh();});
+  onValue(ref(db,'userProducts'),s=>{allProducts=s.val()||{};refresh();});
+  onValue(ref(db,'transactions'),s=>{transactions=s.val()?Object.values(s.val()):[];renderTx();});
+  onValue(ref(db,'financeAccount/balance'),s=>{
+    mainBal=s.val()||0;
+    document.getElementById('totalBalance').textContent='$'+mainBal.toFixed(2);
+    document.getElementById('mainFinBal').textContent='$'+mainBal.toFixed(2);
+  });
+  onValue(ref(db,'financeAccount/totalIn'),s=>{ document.getElementById('totalIn').textContent='$'+(s.val()||0).toFixed(2); });
+  onValue(ref(db,'financeAccount/totalOut'),s=>{ document.getElementById('totalOut').textContent='$'+(s.val()||0).toFixed(2); });
+}
+
+function refresh(){
+  document.getElementById('userCount').textContent=Object.keys(allUsers).length;
+  const totalUserBal=Object.values(allUsers).reduce((s,u)=>s+(u.platformBalance||0),0);
+  document.getElementById('totalUsersBalance').textContent=`إجمالي أرصدة المستخدمين: $${totalUserBal.toFixed(2)}`;
+  renderAccounts();
+}
+
+function renderAccounts(){
+  const tb=document.getElementById('allAccountsBody');
+  const entries=Object.entries(allUsers);
+  if(!entries.length){tb.innerHTML='<tr><td colspan="6" style="text-align:center;color:var(--muted);padding:2rem">لا يوجد مستخدمون</td></tr>';return;}
+  tb.innerHTML=entries.map(([uid,u],i)=>{
+    const prods=Object.values(allProducts).filter(p=>p.seller===uid).length;
+    const bal=u.platformBalance||0;
+    return`<tr>
+      <td style="color:var(--muted)">${i+1}</td>
+      <td style="font-weight:600">${u.name||u.firstName||'—'}</td>
+      <td><code style="font-size:.7rem;color:var(--muted)">${uid.substring(0,16)}...</code></td>
+      <td style="color:${bal>0?'var(--gold)':'var(--muted)'};font-weight:700">$${bal.toFixed(2)}</td>
+      <td>${prods}</td>
+      <td>
+        <button onclick="quickZero('${uid}')" style="padding:.25rem .6rem;background:var(--red-dim);border:1px solid rgba(239,68,68,.3);color:var(--red);border-radius:4px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:.72rem;">تصفير</button>
+        <button onclick="quickFill('${uid}')" style="padding:.25rem .6rem;background:var(--green-dim);border:1px solid rgba(16,185,129,.3);color:var(--green);border-radius:4px;cursor:pointer;font-family:'Cairo',sans-serif;font-size:.72rem;margin-right:.3rem;">+إضافة</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ── SEARCH ─────────────────────────────────────────────────
+window.searchAccount=function(){
+  const q=document.getElementById('searchAccInput').value.trim().toLowerCase();
+  const entry=Object.entries(allUsers).find(([uid,u])=>
+    uid.toLowerCase().includes(q)||(u.name||'').toLowerCase().includes(q)||
+    (u.firstName||'').toLowerCase().includes(q)||(u.email||'').toLowerCase().includes(q)
+  );
+  const res=document.getElementById('searchResult');
+  if(!entry){res.className='search-result show';res.innerHTML='<div style="color:var(--red)">لم يتم العثور على الحساب</div>';return;}
+  const [uid,u]=entry;
+  const prods=Object.values(allProducts).filter(p=>p.seller===uid).length;
+  document.getElementById('srName').textContent=u.name||u.firstName||'—';
+  document.getElementById('srId').textContent=uid;
+  document.getElementById('srEmail').textContent=u.email||'—';
+  document.getElementById('srBal').textContent='$'+(u.platformBalance||0).toFixed(2);
+  document.getElementById('srProds').textContent=prods;
+  res.className='search-result show';
+};
+
+// ── TRANSFER ───────────────────────────────────────────────
+window.doTransfer=async function(){
+  const fromId=document.getElementById('transferFrom').value.trim();
+  const toId=document.getElementById('transferTo').value.trim();
+  const amt=parseFloat(document.getElementById('transferAmt').value);
+  const msg=document.getElementById('transferMsg');
+  if(!fromId||!toId||!amt||amt<=0){showMsg(msg,'أدخل جميع البيانات بشكل صحيح','error');return;}
+  if(fromId===toId){showMsg(msg,'الحسابان متطابقان','error');return;}
+  if(fromId==='MAIN'){
+    // Transfer from main finance account
+    if(mainBal<amt){showMsg(msg,'رصيد حساب الدفع غير كافٍ','error');return;}
+    const toUser=allUsers[toId];
+    if(!toUser){showMsg(msg,'الحساب المستهدف غير موجود','error');return;}
+    await set(ref(db,'financeAccount/balance'),mainBal-amt);
+    await update(ref(db,'users/'+toId),{platformBalance:(toUser.platformBalance||0)+amt});
+    await recordTx({from:'MAIN',to:toId,toName:toUser.name||toUser.firstName,amount:amt,type:'transfer'});
+    showMsg(msg,`✅ تم تحويل $${amt.toFixed(2)} من حساب الدفع إلى ${toUser.name||toUser.firstName}`,'success');
+    return;
+  }
+  const fromUser=allUsers[fromId]; const toUser=allUsers[toId];
+  if(!fromUser){showMsg(msg,'حساب المرسِل غير موجود','error');return;}
+  if(!toUser){showMsg(msg,'حساب المستقبِل غير موجود','error');return;}
+  if((fromUser.platformBalance||0)<amt){showMsg(msg,'رصيد المرسِل غير كافٍ','error');return;}
+  await update(ref(db,'users/'+fromId),{platformBalance:(fromUser.platformBalance||0)-amt});
+  await update(ref(db,'users/'+toId),{platformBalance:(toUser.platformBalance||0)+amt});
+  await recordTx({from:fromId,fromName:fromUser.name||fromUser.firstName,to:toId,toName:toUser.name||toUser.firstName,amount:amt,type:'transfer'});
+  showMsg(msg,`✅ تم تحويل $${amt.toFixed(2)} من ${fromUser.name||fromUser.firstName} إلى ${toUser.name||toUser.firstName}`,'success');
+};
+
+// ── ADD / ZERO BALANCE ─────────────────────────────────────
+window.addBalance=async function(){
+  const id=document.getElementById('balMgmtId').value.trim();
+  const amt=parseFloat(document.getElementById('balAddAmt').value);
+  const msg=document.getElementById('balMgmtMsg');
+  if(!id||!amt){showMsg(msg,'أدخل المعرف والمبلغ','error');return;}
+  const u=allUsers[id];
+  if(!u){showMsg(msg,'الحساب غير موجود','error');return;}
+  await update(ref(db,'users/'+id),{platformBalance:(u.platformBalance||0)+amt});
+  await recordTx({from:'ADMIN',to:id,toName:u.name||u.firstName,amount:amt,type:'in'});
+  showMsg(msg,`✅ تم إضافة $${amt.toFixed(2)} لحساب ${u.name||u.firstName}`,'success');
+};
+
+window.zeroBalanceFinance=async function(){
+  const id=document.getElementById('balMgmtId').value.trim();
+  const msg=document.getElementById('balMgmtMsg');
+  if(!id){showMsg(msg,'أدخل المعرف','error');return;}
+  const u=allUsers[id];
+  if(!u){showMsg(msg,'الحساب غير موجود','error');return;}
+  const bal=u.platformBalance||0;
+  await update(ref(db,'users/'+id),{platformBalance:0});
+  if(bal>0){
+    await set(ref(db,'financeAccount/balance'),mainBal+bal);
+    await recordTx({from:id,fromName:u.name||u.firstName,to:'MAIN',amount:bal,type:'out'});
+  }
+  showMsg(msg,`✅ تم تصفير رصيد ${u.name||u.firstName}`,'success');
+};
+
+window.quickZero=async function(uid){
+  const u=allUsers[uid]; if(!u)return;
+  const bal=u.platformBalance||0;
+  if(bal<=0)return;
+  await update(ref(db,'users/'+uid),{platformBalance:0});
+  await set(ref(db,'financeAccount/balance'),mainBal+bal);
+  await recordTx({from:uid,fromName:u.name||u.firstName,to:'MAIN',amount:bal,type:'out'});
+};
+
+window.quickFill=function(uid){
+  document.getElementById('balMgmtId').value=uid;
+  document.getElementById('balMgmtMsg').className='result-msg';
+  document.getElementById('balAddAmt').focus();
+};
+
+// ── MAIN ACCOUNT ───────────────────────────────────────────
+window.addMainBalance=async function(){
+  const amt=parseFloat(document.getElementById('mainAddAmt').value);
+  const msg=document.getElementById('mainBalMsg');
+  if(!amt||amt<=0){showMsg(msg,'أدخل مبلغاً صحيحاً','error');return;}
+  await set(ref(db,'financeAccount/balance'),mainBal+amt);
+  const snap=await get(ref(db,'financeAccount/totalIn'));
+  await set(ref(db,'financeAccount/totalIn'),(snap.val()||0)+amt);
+  await recordTx({from:'EXTERNAL',to:'MAIN',amount:amt,type:'in',note:'إضافة يدوية من المالك'});
+  showMsg(msg,`✅ تم إضافة $${amt.toFixed(2)} لحساب الدفع`,'success');
+};
+
+window.zeroMainBalance=async function(){
+  const msg=document.getElementById('mainBalMsg');
+  if(mainBal<=0){showMsg(msg,'الحساب صفر بالفعل','error');return;}
+  const snap=await get(ref(db,'financeAccount/totalOut'));
+  await set(ref(db,'financeAccount/totalOut'),(snap.val()||0)+mainBal);
+  await recordTx({from:'MAIN',to:'EXTERNAL',amount:mainBal,type:'out',note:'تصفير يدوي من المالك'});
+  await set(ref(db,'financeAccount/balance'),0);
+  showMsg(msg,'✅ تم تصفير حساب الدفع','success');
+};
+
+// ── TRANSACTIONS ───────────────────────────────────────────
+async function recordTx(data){
+  await push(ref(db,'transactions'),{...data,time:new Date().toISOString()});
+}
+
+function renderTx(){
+  const el=document.getElementById('txList');
+  if(!transactions.length){el.innerHTML='<div style="color:var(--muted);text-align:center;padding:2rem">لا توجد معاملات</div>';return;}
+  el.innerHTML=transactions.slice().reverse().map(tx=>{
+    const isIn=tx.type==='in'; const isOut=tx.type==='out'; const isTransfer=tx.type==='transfer';
+    const icon=isIn?'⬇️':isOut?'⬆️':'↔️';
+    const cls=isIn?'in':isOut?'out':'transfer';
+    const desc=isTransfer?`من ${tx.fromName||tx.from||'—'} إلى ${tx.toName||tx.to||'—'}`:isIn?`وارد إلى ${tx.toName||tx.to||'—'}`:tx.note||`صادر من ${tx.fromName||tx.from||'—'}`;
+    return`<div class="tx-item">
+      <div class="tx-icon ${cls}">${icon}</div>
+      <div class="tx-info"><div class="tx-name">${desc}</div><div class="tx-time">${tx.time?new Date(tx.time).toLocaleString('ar'):''}</div></div>
+      <div class="tx-amount ${cls}">$${(tx.amount||0).toFixed(2)}</div>
+    </div>`;
+  }).join('');
+}
+
+window.clearTx=async function(){
+  if(confirm('حذف جميع سجلات المعاملات؟'))
+    await remove(ref(db,'transactions'));
+};
+
+function showMsg(el,msg,type){
+  el.textContent=msg; el.className='result-msg show '+type;
+  setTimeout(()=>el.classList.remove('show'),4000);
+}
+</script>
+</body>
+</html>
