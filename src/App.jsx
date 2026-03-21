@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
-import { getDatabase, ref, set, get, push, onValue, off, update, remove } from "firebase/database";
+import { getDatabase, ref, set, get, onValue, off, update, remove } from "firebase/database";
 
 const firebaseConfig = { apiKey:"AIzaSyDRCtfuYrEdnuKUsWu_79NC6G_xGLznBJc", authDomain:"tttrt-b8c5a.firebaseapp.com", databaseURL:"https://tttrt-b8c5a-default-rtdb.asia-southeast1.firebasedatabase.app", projectId:"tttrt-b8c5a", storageBucket:"tttrt-b8c5a.firebasestorage.app", messagingSenderId:"975123752593", appId:"1:975123752593:web:e591e930af3a3e29568130" };
 const app = initializeApp(firebaseConfig);
@@ -11,16 +11,33 @@ const db = getDatabase(app);
 const OWNER_USERNAME = "tsaxp";
 const APP_BOT_ID = "bot_dfgfd_official";
 const APP_BOT_USERNAME = "dfgfd";
+const SUPPORT_ID = "support_official";
+const APP_CHANNEL_ID = "channel_termeen_official";
+const BOT_FATHER_ID = "bot_botfather_official";
+const APP_CHANNEL_SUBS = 55000000;
 const ACOLORS = ["#E57373","#4CAF50","#9C27B0","#FF9800","#00BCD4","#F44336","#2196F3","#FF5722","#607D8B","#795548"];
 const rColor = s => ACOLORS[(s||"A").charCodeAt(0)%ACOLORS.length];
 const uidGen = () => Math.random().toString(36).slice(2,10)+Date.now().toString(36);
 const nowStr = () => new Date().toLocaleTimeString("ar-SA",{hour:"2-digit",minute:"2-digit"});
 const nowFull = () => { const d=new Date(); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")} - ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()}`; };
 const fmtSize = b => b<1024?b+" B":b<1048576?(b/1024).toFixed(1)+" KB":(b/1048576).toFixed(1)+" MB";
+const fmtSubs = n => n>=1000000?(n/1000000).toFixed(1)+"M":n>=1000?(n/1000).toFixed(1)+"K":n;
 
 const T = { bg:"#17212b", sidebar:"#0e1621", panel:"#182533", accent:"#2b5278", accentBtn:"#5288c1", text:"#e8f4fd", textSec:"#6b8ca4", msgOut:"#2b5278", msgIn:"#182533", border:"#0d1822", inputBg:"#1c2d3d", hover:"#1c2d3d", online:"#4dd67a", unread:"#5288c1", danger:"#e05c5c", gold:"#f0a040", verified:"#5288c1", tabBar:"#1c2733" };
 
-// ─ Icons ─
+// Smart search scoring
+function searchScore(item, q) {
+  const name = (item.displayName||item.name||"").toLowerCase();
+  const username = (item.username||"").toLowerCase();
+  if(username === q || name === q) return 100;
+  if(username.startsWith(q)) return 90 - username.length;
+  if(name.startsWith(q)) return 80 - name.length;
+  if(username.includes(q)) return 60;
+  if(name.includes(q)) return 50;
+  return 0;
+}
+
+// Icons
 const SVG = {
   send:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke={c} strokeWidth="2" strokeLinecap="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   mic:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="9" y="2" width="6" height="12" rx="3" stroke={c} strokeWidth="2"/><path d="M5 10C5 14.418 8.134 18 12 18C15.866 18 19 14.418 19 10" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="18" x2="12" y2="22" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
@@ -53,39 +70,36 @@ const SVG = {
   crown:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M2 20h20M4 20L2 8l6 4 4-8 4 8 6-4-2 12H4z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   privacy:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   data:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><ellipse cx="12" cy="5" rx="9" ry="3" stroke={c} strokeWidth="2"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" stroke={c} strokeWidth="2"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" stroke={c} strokeWidth="2"/></svg>,
-  theme:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke={c} strokeWidth="2"/><line x1="12" y1="1" x2="12" y2="3" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
-  lang:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="2"/><line x1="2" y1="12" x2="22" y2="12" stroke={c} strokeWidth="2"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke={c} strokeWidth="2"/></svg>,
-  faq:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
   device:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="5" y="2" width="14" height="20" rx="2" stroke={c} strokeWidth="2"/><line x1="12" y1="18" x2="12.01" y2="18" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
+  theme:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="5" stroke={c} strokeWidth="2"/><line x1="12" y1="1" x2="12" y2="3" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="12" y1="21" x2="12" y2="23" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="1" y1="12" x2="3" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round"/><line x1="21" y1="12" x2="23" y2="12" stroke={c} strokeWidth="2" strokeLinecap="round"/></svg>,
+  lang:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke={c} strokeWidth="2"/><line x1="2" y1="12" x2="22" y2="12" stroke={c} strokeWidth="2"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" stroke={c} strokeWidth="2"/></svg>,
+  key:(c,s)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 11-7.778 7.778 5.5 5.5 0 017.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" stroke={c} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>,
 };
 const Ic = ({n,s=20,c=T.textSec}) => SVG[n]?SVG[n](c,s):null;
 
-// ─ Avatar ─
-const Av = ({name,color,size=46,online=false,verified=false,photo=null,fraud=false,bot=false}) => (
+// Avatar
+const Av = ({name,color,size=46,online=false,verified=false,photo=null,fraud=false}) => (
   <div style={{position:"relative",flexShrink:0}}>
     <div style={{width:size,height:size,borderRadius:"50%",background:photo?"transparent":(color||rColor(name||"?")),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.38,fontWeight:"800",color:"#fff",overflow:"hidden",border:fraud?`2px solid ${T.danger}`:"none"}}>
       {photo?<img src={photo} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>:(name||"?").charAt(0).toUpperCase()}
     </div>
     {online&&<div style={{position:"absolute",bottom:1,right:1,width:size*0.26,height:size*0.26,borderRadius:"50%",background:T.online,border:`2px solid ${T.sidebar}`}}/>}
     {verified&&<div style={{position:"absolute",bottom:-2,left:-2,background:T.verified,borderRadius:"50%",width:size*0.32,height:size*0.32,display:"flex",alignItems:"center",justifyContent:"center",border:`1.5px solid ${T.sidebar}`}}><Ic n="check" s={size*0.18} c="#fff"/></div>}
-    {bot&&<div style={{position:"absolute",bottom:-2,left:-2,background:"#2ecc71",borderRadius:"50%",width:size*0.32,height:size*0.32,display:"flex",alignItems:"center",justifyContent:"center",border:`1.5px solid ${T.sidebar}`}}><span style={{fontSize:size*0.16,color:"#fff"}}>🤖</span></div>}
   </div>
 );
 
-// ─ Modal ─
 const Modal = ({title,children,onClose,width="440px"}) => (
   <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.8)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000,padding:"16px"}} onClick={onClose}>
     <div style={{background:"#1a2a3a",borderRadius:"18px",padding:"24px",width,maxWidth:"96vw",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 64px rgba(0,0,0,0.7)",border:`1px solid ${T.border}`}} onClick={e=>e.stopPropagation()}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"20px"}}>
         <h3 style={{color:T.text,fontSize:"17px",fontWeight:"800"}}>{title}</h3>
-        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",padding:"4px",borderRadius:"50%"}}><Ic n="close" s={18}/></button>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer"}}><Ic n="close" s={18}/></button>
       </div>
       {children}
     </div>
   </div>
 );
 
-// ─ Form Input ─
 const FInput = ({label,value,onChange,placeholder,type="text",autoFocus=false,onKeyDown}) => {
   const [show,setShow]=useState(false);
   return (
@@ -93,7 +107,7 @@ const FInput = ({label,value,onChange,placeholder,type="text",autoFocus=false,on
       {label&&<label style={{color:T.textSec,fontSize:"12px",fontWeight:"600"}}>{label}</label>}
       <div style={{position:"relative",display:"flex",alignItems:"center"}}>
         <input value={value} onChange={onChange} placeholder={placeholder} type={type==="password"&&show?"text":type} autoFocus={autoFocus} onKeyDown={onKeyDown}
-          style={{background:T.inputBg,border:`1px solid ${T.border}44`,borderRadius:"12px",padding:`11px ${type==="password"?"40px":"14px"} 11px 14px`,color:T.text,fontSize:"15px",outline:"none",direction:"rtl",fontFamily:"inherit",width:"100%",boxSizing:"border-box",transition:"border 0.2s"}}
+          style={{background:T.inputBg,border:`1px solid ${T.border}44`,borderRadius:"12px",padding:`11px ${type==="password"?"40px":"14px"} 11px 14px`,color:T.text,fontSize:"15px",outline:"none",direction:"rtl",fontFamily:"inherit",width:"100%",boxSizing:"border-box"}}
           onFocus={e=>e.target.style.borderColor=T.accentBtn} onBlur={e=>e.target.style.borderColor=`${T.border}44`}/>
         {type==="password"&&<button onClick={()=>setShow(!show)} style={{position:"absolute",left:"12px",background:"none",border:"none",cursor:"pointer"}}><Ic n={show?"eyeOff":"eye"} s={16}/></button>}
       </div>
@@ -102,8 +116,8 @@ const FInput = ({label,value,onChange,placeholder,type="text",autoFocus=false,on
 };
 
 const PBtn = ({children,onClick,loading=false,color=T.accentBtn,disabled=false,style={}}) => (
-  <button onClick={onClick} disabled={loading||disabled} style={{background:color,border:"none",borderRadius:"12px",padding:"13px",color:"#fff",fontWeight:"700",fontSize:"15px",cursor:(loading||disabled)?"not-allowed":"pointer",fontFamily:"inherit",width:"100%",opacity:(loading||disabled)?0.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",transition:"opacity 0.2s",...style}}>
-    {loading?<span style={{animation:"spin 0.8s linear infinite",display:"inline-block",fontSize:"18px"}}>⟳</span>:children}
+  <button onClick={onClick} disabled={loading||disabled} style={{background:color,border:"none",borderRadius:"12px",padding:"13px",color:"#fff",fontWeight:"700",fontSize:"15px",cursor:(loading||disabled)?"not-allowed":"pointer",fontFamily:"inherit",width:"100%",opacity:(loading||disabled)?0.7:1,display:"flex",alignItems:"center",justifyContent:"center",gap:"8px",...style}}>
+    {loading?<span style={{animation:"spin 0.8s linear infinite",display:"inline-block"}}>⟳</span>:children}
   </button>
 );
 
@@ -113,21 +127,21 @@ const Toggle = ({checked,onChange}) => (
   </button>
 );
 
-// ─ Auth Screen ─
+// Auth Screen
 function AuthScreen() {
   const [mode,setMode]=useState("login");
   const [form,setForm]=useState({displayName:"",username:"",email:"",password:""});
   const [loading,setLoading]=useState(false);
   const [err,setErr]=useState("");
-  const F = k => e => setForm(p=>({...p,[k]:e.target.value}));
+  const F=k=>e=>setForm(p=>({...p,[k]:e.target.value}));
 
-  const validate = () => {
+  const validate=()=>{
     if(mode==="register"){
       if(!form.displayName.trim()){setErr("أدخل اسمك الشخصي");return false;}
       if(!form.username.trim()){setErr("أدخل اسم المستخدم");return false;}
-      if(form.username.trim().length<5){setErr("اسم المستخدم يجب أن يكون 5 أحرف على الأقل");return false;}
+      if(form.username.trim().length<5){setErr("اسم المستخدم 5 أحرف على الأقل");return false;}
       if(/^\d/.test(form.username)){setErr("اسم المستخدم لا يبدأ برقم");return false;}
-      if(!/^[a-zA-Z][a-zA-Z0-9_]{4,}$/.test(form.username)){setErr("اسم المستخدم: حروف وأرقام وشرطة سفلية، يبدأ بحرف");return false;}
+      if(!/^[a-zA-Z][a-zA-Z0-9_]{4,}$/.test(form.username)){setErr("حروف وأرقام وشرطة سفلية فقط، يبدأ بحرف");return false;}
       if(form.password.length<6){setErr("كلمة المرور 6 أحرف على الأقل");return false;}
     }
     if(!form.email.trim()){setErr("أدخل البريد الإلكتروني");return false;}
@@ -135,28 +149,42 @@ function AuthScreen() {
     return true;
   };
 
-  const handleRegister = async () => {
-    if(!validate())return;
+  const handleRegister=async()=>{
+    if(!validate()) return;
     setLoading(true);setErr("");
     try {
-      const usSnap = await get(ref(db,`usernames/${form.username.toLowerCase()}`));
+      const usSnap=await get(ref(db,`usernames/${form.username.toLowerCase()}`));
       if(usSnap.exists()){setErr("اسم المستخدم مستخدم بالفعل");setLoading(false);return;}
-      const cred = await createUserWithEmailAndPassword(auth,form.email,form.password);
+      const cred=await createUserWithEmailAndPassword(auth,form.email,form.password);
       await updateProfile(cred.user,{displayName:form.displayName});
-      const uid2 = cred.user.uid;
-      const userData = {uid:uid2,displayName:form.displayName,username:form.username.toLowerCase(),email:form.email,bio:"",photoURL:"",verified:false,isBanned:false,isRestricted:false,isFraud:false,twoFactor:false,createdAt:Date.now(),lastSeen:Date.now(),color:rColor(form.displayName)};
+      const uid2=cred.user.uid;
+      const userData={uid:uid2,displayName:form.displayName,username:form.username.toLowerCase(),email:form.email,bio:"",photoURL:"",verified:false,isBanned:false,isRestricted:false,isFraud:false,twoFactor:false,createdAt:Date.now(),lastSeen:Date.now(),color:rColor(form.displayName)};
       await set(ref(db,`users/${uid2}`),userData);
       await set(ref(db,`usernames/${form.username.toLowerCase()}`),uid2);
       // Saved messages
       const savedId=`saved_${uid2}`;
       await set(ref(db,`chats/${savedId}`),{id:savedId,type:"saved",name:"الرسائل المحفوظة",members:[uid2],createdAt:Date.now()});
-      await set(ref(db,`userChats/${uid2}/${savedId}`),{chatId:savedId,lastMessage:"احفظ رسائلك هنا",lastTime:nowStr(),unread:0,order:Date.now()-2,type:"saved",name:"الرسائل المحفوظة",color:"#5288c1"});
-      // Bot chat
+      await set(ref(db,`userChats/${uid2}/${savedId}`),{chatId:savedId,lastMessage:"احفظ رسائلك هنا",lastTime:nowStr(),unread:0,order:Date.now()-3,type:"saved",name:"الرسائل المحفوظة",color:"#5288c1"});
+      // DFGFD Bot chat
       const botChatId=`bot_${uid2}`;
-      await set(ref(db,`chats/${botChatId}`),{id:botChatId,type:"bot",name:"DFGFD",username:APP_BOT_USERNAME,isOfficial:true,members:[uid2,APP_BOT_ID],createdAt:Date.now()});
-      await set(ref(db,`userChats/${uid2}/${botChatId}`),{chatId:botChatId,lastMessage:"مرحباً بك في تيرمين ✈️",lastTime:nowStr(),unread:1,order:Date.now()-1,type:"bot",name:"DFGFD",color:"#5288c1"});
+      await set(ref(db,`chats/${botChatId}`),{id:botChatId,type:"official_bot",name:"DFGFD",username:APP_BOT_USERNAME,isOfficial:true,verified:true,members:[uid2,APP_BOT_ID],createdAt:Date.now(),photoURL:""});
+      await set(ref(db,`userChats/${uid2}/${botChatId}`),{chatId:botChatId,lastMessage:"مرحباً بك في تيرمين ✈️",lastTime:nowStr(),unread:1,order:Date.now()-2,type:"official_bot",name:"DFGFD",verified:true,color:"#5288c1"});
       const wid=uidGen();
-      await set(ref(db,`messages/${botChatId}/${wid}`),{id:wid,chatId:botChatId,text:`✈️ مرحباً ${form.displayName}!\n\nأنا DFGFD، المساعد الرسمي لتطبيق تيرمين.\n\nيمكنك استخدام التطبيق بكل أمان وجميع بياناتك مشفّرة.\n\n🆔 معرّفك: @${form.username.toLowerCase()}\n\nإذا احتجت أي مساعدة أو حدثت أي تغييرات في حسابك ستصلك الإشعارات هنا! 🔔`,from:APP_BOT_ID,senderName:"DFGFD",time:nowStr(),type:"text",isBot:true,createdAt:Date.now()});
+      await set(ref(db,`messages/${botChatId}/${wid}`),{id:wid,chatId:botChatId,text:`✈️ مرحباً ${form.displayName}!\n\nأنا DFGFD، المساعد الرسمي لتطبيق تيرمين.\n\nيمكنك استخدام التطبيق بكل أمان وجميع بياناتك مشفّرة.\n\n🆔 معرّفك: @${form.username.toLowerCase()}\n\nإذا احتجت أي مساعدة أو حدثت تغييرات في حسابك ستصلك الإشعارات هنا! 🔔`,from:APP_BOT_ID,senderName:"DFGFD",time:nowStr(),type:"text",isOfficialBot:true,createdAt:Date.now()});
+      // Support chat
+      const supChatId=`support_${uid2}`;
+      await set(ref(db,`chats/${supChatId}`),{id:supChatId,type:"support",name:"الدعم الفني",username:"support",isOfficial:true,verified:false,members:[uid2,SUPPORT_ID],createdAt:Date.now(),photoURL:""});
+      await set(ref(db,`userChats/${uid2}/${supChatId}`),{chatId:supChatId,lastMessage:"الدعم",lastTime:"",unread:0,order:Date.now()-1,type:"support",name:"الدعم الفني",color:"#4CAF50",subtitle:"الدعم"});
+      // App channel subscription
+      const chSnap=await get(ref(db,`chats/${APP_CHANNEL_ID}`));
+      if(chSnap.exists()){
+        const ch=chSnap.val();
+        const subs=(ch.subscribers||APP_CHANNEL_SUBS)+1;
+        const subsList=[...(ch.subscribersList||[])];
+        if(!subsList.includes(uid2)) subsList.push(uid2);
+        await update(ref(db,`chats/${APP_CHANNEL_ID}`),{subscribers:subs,subscribersList:subsList,members:[...(ch.members||[]),uid2]});
+        await set(ref(db,`userChats/${uid2}/${APP_CHANNEL_ID}`),{chatId:APP_CHANNEL_ID,lastMessage:"مرحباً بقناة تيرمين الرسمية",lastTime:nowStr(),unread:1,order:Date.now(),type:"channel",name:"تيرمين الرسمية",verified:true,color:"#5288c1",photoURL:""});
+      }
     } catch(e){
       const m={"auth/email-already-in-use":"البريد مستخدم بالفعل","auth/invalid-email":"بريد غير صالح","auth/weak-password":"كلمة المرور ضعيفة","auth/network-request-failed":"خطأ في الاتصال"};
       setErr(m[e.code]||e.message);
@@ -164,11 +192,11 @@ function AuthScreen() {
     setLoading(false);
   };
 
-  const handleLogin = async () => {
-    if(!validate())return;
+  const handleLogin=async()=>{
+    if(!validate()) return;
     setLoading(true);setErr("");
     try {
-      const cred = await signInWithEmailAndPassword(auth,form.email,form.password);
+      const cred=await signInWithEmailAndPassword(auth,form.email,form.password);
       await update(ref(db,`users/${cred.user.uid}`),{lastSeen:Date.now()});
     } catch(e){
       const m={"auth/invalid-credential":"بيانات الدخول غير صحيحة","auth/user-not-found":"لا يوجد حساب","auth/wrong-password":"كلمة المرور خاطئة","auth/network-request-failed":"خطأ في الاتصال"};
@@ -181,13 +209,13 @@ function AuthScreen() {
     <div style={{minHeight:"100vh",background:T.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:"20px",fontFamily:"'Segoe UI',Tahoma,sans-serif",direction:"rtl"}}>
       <div style={{width:"100%",maxWidth:"400px"}}>
         <div style={{textAlign:"center",marginBottom:"32px"}}>
-          <div style={{fontSize:"64px",marginBottom:"12px",filter:"drop-shadow(0 8px 24px rgba(82,136,193,0.4))"}}>✈️</div>
+          <div style={{fontSize:"64px",marginBottom:"12px"}}>✈️</div>
           <div style={{color:T.text,fontSize:"28px",fontWeight:"900",letterSpacing:"2px"}}>تيرمين</div>
           <div style={{color:T.textSec,fontSize:"13px",marginTop:"6px"}}>تواصل أسرع · أسهل · أكثر أماناً</div>
         </div>
         <div style={{display:"flex",background:T.panel,borderRadius:"14px",padding:"4px",marginBottom:"22px",gap:"4px"}}>
           {[["login","تسجيل الدخول"],["register","إنشاء حساب"]].map(([k,l])=>(
-            <button key={k} onClick={()=>{setMode(k);setErr("");}} style={{flex:1,padding:"10px",borderRadius:"11px",border:"none",background:mode===k?T.accentBtn:"transparent",color:mode===k?"#fff":T.textSec,fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit",transition:"all 0.2s"}}>{l}</button>
+            <button key={k} onClick={()=>{setMode(k);setErr("");}} style={{flex:1,padding:"10px",borderRadius:"11px",border:"none",background:mode===k?T.accentBtn:"transparent",color:mode===k?"#fff":T.textSec,fontWeight:"700",fontSize:"14px",cursor:"pointer",fontFamily:"inherit"}}>{l}</button>
           ))}
         </div>
         <div style={{background:T.sidebar,borderRadius:"18px",padding:"24px",border:`1px solid ${T.border}`,display:"flex",flexDirection:"column",gap:"13px"}}>
@@ -204,12 +232,13 @@ function AuthScreen() {
   );
 }
 
-// ─ Settings Panel (full Telegram sections) ─
-function SettingsPanel({user,userData,setUserData,isOwner,setModal}) {
-  const [tab,setTab]=useState("main");
+// Settings Panel
+function SettingsPanel({user,userData,setUserData,isOwner,openSupportChat,setModal}) {
+  const [notifs,setNotifs]=useState({privateMsg:true,groups:true,channels:false,sounds:true});
+  const [privacy,setPrivacy]=useState({phone:"nobody",photo:"everyone",lastSeen:"everyone"});
   const photoRef=useRef(null);
 
-  const uploadPhoto = useCallback(file => {
+  const uploadPhoto=useCallback(file=>{
     if(!file||!user) return;
     const r=new FileReader();
     r.onload=async e=>{
@@ -222,49 +251,59 @@ function SettingsPanel({user,userData,setUserData,isOwner,setModal}) {
 
   const SECTIONS=[
     {title:"الحساب",items:[
-      {ic:"user",l:"تعديل الملف الشخصي",sub:userData?.bio||"اضغط لتعديل",a:()=>setModal("editProfile")},
-      {ic:"device",l:"الأجهزة النشطة",sub:"جهاز واحد"},
-      {ic:"lock",l:"التحقق بخطوتين",sub:userData?.twoFactor?"مفعّل":"معطّل",a:()=>setModal("twoFactor")},
+      {ic:"user",l:"تعديل الملف الشخصي",a:()=>setModal("editProfile")},
+      {ic:"device",l:"الأجهزة النشطة",sub:"جهاز واحد نشط"},
+      {ic:"lock",l:"التحقق بخطوتين",sub:userData?.twoFactor?"مفعّل ✅":"معطّل",a:()=>setModal("twoFactor")},
+      {ic:"key",l:"تغيير كلمة المرور",a:()=>setModal("changePass")},
     ]},
-    {title:"الإشعارات والأصوات",items:[
-      {ic:"notification",l:"الرسائل الخاصة",sub:"تنبيه + صوت"},
-      {ic:"notification",l:"المجموعات",sub:"فقط الإشارات"},
-      {ic:"notification",l:"القنوات",sub:"صامت"},
-    ]},
+    {title:"الإشعارات والأصوات",custom:()=>(
+      <div style={{background:T.sidebar,padding:"4px 0"}}>
+        {[
+          {k:"privateMsg",l:"الرسائل الخاصة"},
+          {k:"groups",l:"المجموعات"},
+          {k:"channels",l:"القنوات"},
+          {k:"sounds",l:"الأصوات"},
+        ].map(item=>(
+          <div key={item.k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 16px",borderBottom:`1px solid ${T.border}15`}}>
+            <div style={{display:"flex",alignItems:"center",gap:"14px"}}>
+              <div style={{width:"38px",height:"38px",borderRadius:"12px",background:`${T.accentBtn}20`,display:"flex",alignItems:"center",justifyContent:"center"}}><Ic n="notification" s={18} c={T.accentBtn}/></div>
+              <span style={{color:T.text,fontSize:"14.5px"}}>{item.l}</span>
+            </div>
+            <Toggle checked={notifs[item.k]} onChange={()=>setNotifs(p=>({...p,[item.k]:!p[item.k]}))}/>
+          </div>
+        ))}
+      </div>
+    )},
     {title:"الخصوصية والأمان",items:[
-      {ic:"privacy",l:"رقم الهاتف",sub:"لا أحد"},
-      {ic:"privacy",l:"الصورة الشخصية",sub:"الجميع"},
-      {ic:"privacy",l:"الرسائل الأخيرة",sub:"جهات الاتصال"},
-      {ic:"privacy",l:"حالة الاتصال",sub:"الجميع"},
+      {ic:"privacy",l:"رقم الهاتف",sub:privacy.phone==="nobody"?"لا أحد":"جهات الاتصال",a:()=>setPrivacy(p=>({...p,phone:p.phone==="nobody"?"contacts":"nobody"}))},
+      {ic:"privacy",l:"الصورة الشخصية",sub:privacy.photo==="everyone"?"الجميع":"جهات الاتصال",a:()=>setPrivacy(p=>({...p,photo:p.photo==="everyone"?"contacts":"everyone"}))},
+      {ic:"privacy",l:"آخر ظهور",sub:privacy.lastSeen==="everyone"?"الجميع":"لا أحد",a:()=>setPrivacy(p=>({...p,lastSeen:p.lastSeen==="everyone"?"nobody":"everyone"}))},
     ]},
     {title:"البيانات والتخزين",items:[
-      {ic:"data",l:"استخدام البيانات",sub:""},
-      {ic:"data",l:"إدارة مساحة التخزين",sub:""},
+      {ic:"data",l:"استخدام البيانات",sub:"تلقائي"},
+      {ic:"data",l:"إدارة التخزين",sub:"تنظيف الكاش"},
     ]},
     {title:"المظهر",items:[
       {ic:"theme",l:"الوضع الداكن",sub:"مفعّل"},
       {ic:"theme",l:"حجم الخط",sub:"متوسط"},
-      {ic:"theme",l:"لون الرسائل",sub:"أزرق"},
     ]},
     {title:"اللغة",items:[
       {ic:"lang",l:"لغة التطبيق",sub:"العربية"},
     ]},
     {title:"الدعم والمساعدة",items:[
-      {ic:"support",l:"الدعم الفني",a:()=>setModal("support")},
-      {ic:"faq",l:"الأسئلة الشائعة",sub:""},
-      {ic:"privacy",l:"سياسة الخصوصية",sub:""},
+      {ic:"support",l:"الدعم الفني",a:openSupportChat},
+      {ic:"privacy",l:"سياسة الخصوصية"},
     ]},
     ...(isOwner?[{title:"الإدارة",items:[{ic:"crown",l:"لوحة تحكم المالك",sub:"tsaxp",a:()=>window.open("/admin","_blank")}]}]:[]),
   ];
 
   return (
-    <div style={{display:"flex",flexDirection:"column",height:"100%",overflowY:"auto"}}>
+    <div style={{display:"flex",flexDirection:"column",overflowY:"auto",height:"100%"}}>
       <input ref={photoRef} type="file" accept="image/*" style={{display:"none"}} onChange={e=>uploadPhoto(e.target.files[0])} onClick={e=>e.target.value=""}/>
-      {/* Profile Hero */}
       <div style={{background:`linear-gradient(160deg,${T.accent},#12243a)`,padding:"24px 16px 20px",display:"flex",flexDirection:"column",alignItems:"center",gap:"10px",flexShrink:0}}>
         <div style={{position:"relative",cursor:"pointer"}} onClick={()=>photoRef.current?.click()}>
           <Av name={userData?.displayName||""} color={userData?.color||rColor(userData?.displayName||"")} size={80} verified={userData?.verified} photo={userData?.photoURL}/>
-          <div style={{position:"absolute",bottom:0,right:0,background:T.accentBtn,borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.accent}`}}>📷</div>
+          <div style={{position:"absolute",bottom:0,right:0,background:T.accentBtn,borderRadius:"50%",width:26,height:26,display:"flex",alignItems:"center",justifyContent:"center",border:`2px solid ${T.accent}`,fontSize:"13px"}}>📷</div>
         </div>
         <div style={{textAlign:"center"}}>
           <div style={{color:"#fff",fontSize:"19px",fontWeight:"800",display:"flex",alignItems:"center",gap:"6px",justifyContent:"center"}}>
@@ -276,12 +315,11 @@ function SettingsPanel({user,userData,setUserData,isOwner,setModal}) {
           <div style={{color:"rgba(255,255,255,0.45)",fontSize:"12px",marginTop:"3px"}}>{userData?.bio||"لا توجد نبذة"}</div>
         </div>
       </div>
-      {/* Sections */}
       {SECTIONS.map(group=>(
         <div key={group.title} style={{marginBottom:"6px"}}>
           <div style={{color:T.textSec,fontSize:"12px",fontWeight:"700",padding:"12px 16px 5px",letterSpacing:"0.5px"}}>{group.title}</div>
-          {group.items.map(item=>(
-            <div key={item.l} onClick={item.a} style={{display:"flex",alignItems:"center",gap:"14px",padding:"12px 16px",background:T.sidebar,cursor:item.a?"pointer":"default",borderBottom:`1px solid ${T.border}15`,transition:"background 0.15s"}}
+          {group.custom?group.custom():group.items.map(item=>(
+            <div key={item.l} onClick={item.a} style={{display:"flex",alignItems:"center",gap:"14px",padding:"12px 16px",background:T.sidebar,cursor:item.a?"pointer":"default",borderBottom:`1px solid ${T.border}15`}}
               onMouseEnter={e=>{if(item.a)e.currentTarget.style.background=T.hover;}} onMouseLeave={e=>e.currentTarget.style.background=T.sidebar}>
               <div style={{width:"38px",height:"38px",borderRadius:"12px",background:`${T.accentBtn}20`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
                 <Ic n={item.ic} s={18} c={T.accentBtn}/>
@@ -297,12 +335,13 @@ function SettingsPanel({user,userData,setUserData,isOwner,setModal}) {
       ))}
       <div style={{padding:"16px",textAlign:"center"}}>
         <button onClick={()=>signOut(auth)} style={{background:`${T.danger}15`,border:`1px solid ${T.danger}30`,borderRadius:"12px",padding:"13px",color:T.danger,cursor:"pointer",fontFamily:"inherit",fontWeight:"700",fontSize:"14px",width:"100%"}}>🚪 تسجيل الخروج</button>
-        <div style={{color:T.textSec,fontSize:"11px",marginTop:"12px"}}>✈️ تيرمين v4.0</div>
+        <div style={{color:T.textSec,fontSize:"11px",marginTop:"12px"}}>✈️ تيرمين v4.1</div>
       </div>
     </div>
   );
 }
 
+// Main App
 export default function App() {
   const [user,setUser]=useState(null);
   const [userData,setUserData]=useState(null);
@@ -329,14 +368,29 @@ export default function App() {
   const [editProfile,setEditProfile]=useState({displayName:"",username:"",bio:"",photo:""});
   const [isOwner,setIsOwner]=useState(false);
   const [channelSettings,setChannelSettings]=useState(null);
-  const [msgListUnsub,setMsgListUnsub]=useState(null);
+  const [botForm,setBotForm]=useState({name:"",username:""});
+  const [msgUnsub,setMsgUnsub]=useState(null);
 
   const endRef=useRef(null);
   const inputRef=useRef(null);
   const fileRef=useRef(null);
   const imgRef=useRef(null);
 
+  // Init app channel & botfather if not exists
+  const initAppData=useCallback(async()=>{
+    const chSnap=await get(ref(db,`chats/${APP_CHANNEL_ID}`));
+    if(!chSnap.exists()){
+      await set(ref(db,`chats/${APP_CHANNEL_ID}`),{id:APP_CHANNEL_ID,type:"channel",name:"تيرمين الرسمية",username:"termeen",bio:"القناة الرسمية لتطبيق تيرمين ✈️",verified:true,isOfficial:true,ownerId:"system",subscribers:APP_CHANNEL_SUBS,subscribersList:[],members:["system"],createdAt:Date.now(),photoURL:""});
+      await set(ref(db,`chatUsernames/termeen`),APP_CHANNEL_ID);
+    }
+    const bfSnap=await get(ref(db,`chats/${BOT_FATHER_ID}`));
+    if(!bfSnap.exists()){
+      await set(ref(db,`chats/${BOT_FATHER_ID}`),{id:BOT_FATHER_ID,type:"official_bot",name:"BotFather",username:"botfather",bio:"أنشئ بوتك الخاص وأديره",verified:true,isOfficial:true,members:["system"],createdAt:Date.now(),photoURL:""});
+    }
+  },[]);
+
   useEffect(()=>{
+    initAppData();
     const unsub=onAuthStateChanged(auth,async u=>{
       if(u){
         setUser(u);
@@ -354,9 +408,9 @@ export default function App() {
     const onResize=()=>setIsMobile(window.innerWidth<900);
     window.addEventListener("resize",onResize);
     return()=>{unsub();window.removeEventListener("resize",onResize);};
-  },[]);
+  },[initAppData]);
 
-  // Load chats with dedup
+  // Load chats (deduped)
   useEffect(()=>{
     if(!user) return;
     const r=ref(db,`userChats/${user.uid}`);
@@ -379,42 +433,51 @@ export default function App() {
 
   // Load messages
   useEffect(()=>{
-    if(msgListUnsub){msgListUnsub();setMsgListUnsub(null);}
+    if(msgUnsub){msgUnsub();setMsgUnsub(null);}
     if(!activeChat) return;
     const r=ref(db,`messages/${activeChat}`);
     const unsub=onValue(r,snap=>{
       if(!snap.exists()){setMessages([]);return;}
       setMessages(Object.values(snap.val()).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0)));
     });
-    setMsgListUnsub(()=>unsub);
+    setMsgUnsub(()=>()=>off(r));
     return()=>off(r);
   },[activeChat]);
 
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
-  // Search
+  // Smart search - instant, sorted by relevance
   useEffect(()=>{
     if(!search.trim()||!searchMode){setSearchResults([]);return;}
-    const q=search.toLowerCase().replace("@","");
+    const q=search.toLowerCase().replace("@","").trim();
+    let timer=null;
     const doSearch=async()=>{
       const results=[];
-      const uSnap=await get(ref(db,"users"));
-      if(uSnap.exists()) Object.values(uSnap.val()).forEach(u=>{
-        if((u.username||"").includes(q)||(u.displayName||"").toLowerCase().includes(q)) results.push({...u,resultType:"user"});
-      });
-      const cSnap=await get(ref(db,"chats"));
-      if(cSnap.exists()) Object.values(cSnap.val()).forEach(c=>{
-        if(["channel","group","bot"].includes(c.type)&&((c.username||"").includes(q)||(c.name||"").toLowerCase().includes(q))) results.push({...c,resultType:c.type});
-      });
+      const [uSnap,cSnap]=await Promise.all([get(ref(db,"users")),get(ref(db,"chats"))]);
+      if(uSnap.exists()){
+        Object.values(uSnap.val()).forEach(u=>{
+          const score=searchScore(u,q);
+          if(score>0) results.push({...u,resultType:"user",_score:score});
+        });
+      }
+      if(cSnap.exists()){
+        Object.values(cSnap.val()).forEach(c=>{
+          if(!["channel","group","official_bot","bot"].includes(c.type)) return;
+          const score=searchScore(c,q);
+          if(score>0) results.push({...c,resultType:c.type,_score:score});
+        });
+      }
+      results.sort((a,b)=>b._score-a._score);
       setSearchResults(results.slice(0,20));
     };
-    const t=setTimeout(doSearch,300);
-    return()=>clearTimeout(t);
+    timer=setTimeout(doSearch,150);
+    return()=>clearTimeout(timer);
   },[search,searchMode]);
 
   const openChat=useCallback(async(chatId,chatDataOverride=null)=>{
     setActiveChat(chatId);
-    setShowInfo(false);setReplyTo(null);setShowMenu(false);setAttachMenu(false);setSearchMode(false);setSearch("");
+    setShowInfo(false);setReplyTo(null);setShowMenu(false);setAttachMenu(false);
+    setSearchMode(false);setSearch("");setModal(null);
     if(isMobile) setShowSidebar(false);
     const snap=await get(ref(db,`chats/${chatId}`));
     setActiveChatData(snap.exists()?snap.val():chatDataOverride);
@@ -422,6 +485,19 @@ export default function App() {
     setBottomTab("chats");
     setTimeout(()=>inputRef.current?.focus(),80);
   },[isMobile,user]);
+
+  const openSupportChat=useCallback(async()=>{
+    if(!user) return;
+    const supChatId=`support_${user.uid}`;
+    const snap=await get(ref(db,`chats/${supChatId}`));
+    if(!snap.exists()){
+      const cd={id:supChatId,type:"support",name:"الدعم الفني",username:"support",isOfficial:true,verified:false,members:[user.uid,SUPPORT_ID],createdAt:Date.now(),photoURL:""};
+      await set(ref(db,`chats/${supChatId}`),cd);
+      await set(ref(db,`userChats/${user.uid}/${supChatId}`),{chatId:supChatId,lastMessage:"الدعم",lastTime:"",unread:0,order:Date.now(),type:"support",name:"الدعم الفني",color:"#4CAF50",subtitle:"الدعم"});
+    }
+    openChat(supChatId,{id:supChatId,type:"support",name:"الدعم الفني",subtitle:"الدعم"});
+    setBottomTab("chats");
+  },[user,openChat]);
 
   const sendMessage=useCallback(async(overText=null,type="text",extra={})=>{
     const text=overText??input.trim();
@@ -435,16 +511,86 @@ export default function App() {
     await update(ref(db,`userChats/${user.uid}/${activeChat}`),{lastMessage:preview,lastTime:nowStr(),order:Date.now()});
     if(activeChatData?.members){
       for(const mid of activeChatData.members){
-        if(mid!==user.uid&&!mid.startsWith("bot_")){
+        if(mid!==user.uid&&!mid.startsWith("bot_")&&mid!==SUPPORT_ID&&mid!==APP_BOT_ID){
           const mc=await get(ref(db,`userChats/${mid}/${activeChat}`));
           const u2c=mc.exists()?mc.val().unread||0:0;
           await update(ref(db,`userChats/${mid}/${activeChat}`),{lastMessage:preview,lastTime:nowStr(),unread:u2c+1,order:Date.now()});
         }
       }
     }
+    // Auto AI reply for support chat
+    if(activeChatData?.type==="support"){
+      setTimeout(async()=>{
+        try {
+          const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:400,system:"أنت مساعد دعم فني لتطبيق تيرمين. أجب باللغة العربية بشكل مفيد ومختصر. في نهاية ردك أضف: 'إذا أردت التحدث مع الدعم البشري اضغط زر التحويل في الأسفل.'",messages:[{role:"user",content:text}]})});
+          const data=await res.json();
+          const aiText=data.content?.[0]?.text||"شكراً لتواصلك! سيتم الرد قريباً.";
+          const aiId=uidGen();
+          await set(ref(db,`messages/${activeChat}/${aiId}`),{id:aiId,chatId:activeChat,text:aiText,from:SUPPORT_ID,senderName:"الدعم الفني",time:nowStr(),type:"text",isSupport:true,createdAt:Date.now()+500});
+          await update(ref(db,`userChats/${user.uid}/${activeChat}`),{lastMessage:aiText.slice(0,50),lastTime:nowStr(),order:Date.now()+1});
+          // Send ticket to admin
+          const tId=`ticket_${user.uid}`;
+          await set(ref(db,`support/${tId}/info`),{userId:user.uid,username:userData.username,displayName:userData.displayName,status:"open",createdAt:Date.now()});
+          const tmId=uidGen();
+          await set(ref(db,`support/${tId}/messages/${tmId}`),{id:tmId,text,from:user.uid,time:nowStr(),createdAt:Date.now()});
+          const trId=uidGen();
+          await set(ref(db,`support/${tId}/messages/${trId}`),{id:trId,text:aiText,from:"ai_bot",time:nowStr(),createdAt:Date.now()+500});
+        } catch(e){}
+      },1200);
+    }
+    // BotFather logic
+    if(activeChatData?.type==="official_bot"&&activeChatData?.username==="botfather"){
+      handleBotFatherMsg(text,activeChat);
+    }
     setInput("");setReplyTo(null);setShowEmoji(false);
     inputRef.current?.focus();
   },[input,activeChat,user,userData,replyTo,activeChatData]);
+
+  const handleBotFatherMsg=useCallback(async(text,chatId)=>{
+    const t=text.trim().toLowerCase();
+    let reply="";
+    if(t==="/start"||t==="مرحبا"||t==="hi"||t==="hello"){
+      reply=`مرحباً! أنا BotFather ✈️\n\nيمكنني مساعدتك في:\n/newbot — إنشاء بوت جديد\n/mybots — عرض بوتاتك\n/token — الحصول على توكن\n\nاكتب الأمر للبدء!`;
+    } else if(t==="/newbot"||t.includes("جديد")){
+      reply="اختر اسماً لبوتك:\n(يجب أن يبدأ بحرف ويحتوي على أرقام وحروف فقط، بدون مسافات)";
+    } else if(t.endsWith("bot")||t.endsWith("_bot")){
+      const token=`${Date.now()}:AAF${Math.random().toString(36).slice(2,20).toUpperCase()}`;
+      const botUsername=t.replace("@","").toLowerCase();
+      if(botUsername.length<5){reply="اسم البوت قصير جداً! يجب 5 أحرف على الأقل."; }
+      else {
+        const botChatId=`botcreated_${uidGen()}`;
+        await set(ref(db,`bots/${botChatId}`),{id:botChatId,username:botUsername,name:botUsername,token,creatorId:user?.uid,createdAt:Date.now()});
+        if(user?.uid) await set(ref(db,`userBots/${user.uid}/${botChatId}`),{username:botUsername,token,createdAt:Date.now()});
+        reply=`✅ تم إنشاء البوت!\n\n🤖 البوت: @${botUsername}\n🔑 التوكن:\n\`${token}\`\n\n⚠️ احتفظ بالتوكن في مكان آمن ولا تشاركه!`;
+      }
+    } else if(t==="/mybots"){
+      if(user?.uid){
+        const snap=await get(ref(db,`userBots/${user?.uid}`));
+        if(snap.exists()){
+          const bots=Object.values(snap.val());
+          reply=`🤖 بوتاتك (${bots.length}):\n\n${bots.map(b=>`• @${b.username}\n  التوكن: ${b.token?.slice(0,20)}...`).join("\n\n")}`;
+        } else reply="لا توجد بوتات بعد. اكتب /newbot لإنشاء بوت!";
+      }
+    } else {
+      reply="أرسل /start للبدء\n/newbot — بوت جديد\n/mybots — بوتاتك";
+    }
+    if(reply){
+      setTimeout(async()=>{
+        const rid=uidGen();
+        await set(ref(db,`messages/${chatId}/${rid}`),{id:rid,chatId,text:reply,from:BOT_FATHER_ID,senderName:"BotFather",time:nowStr(),type:"text",isOfficialBot:true,createdAt:Date.now()+600});
+        await update(ref(db,`userChats/${user?.uid}/${chatId}`),{lastMessage:reply.slice(0,40),lastTime:nowStr(),order:Date.now()+1});
+      },800);
+    }
+  },[user]);
+
+  const escalateToHuman=useCallback(async()=>{
+    if(!activeChat||!user||!userData) return;
+    const ticketNum=`TKT-${Date.now().toString().slice(-6)}`;
+    const msgId=uidGen();
+    await set(ref(db,`messages/${activeChat}/${msgId}`),{id:msgId,chatId:activeChat,text:`📋 تم إرسال رسالتك إلى الدعم البشري.\n🎫 رقم الطلب: ${ticketNum}\nسيتم الرد في أقرب وقت. شكراً لصبرك! ✅`,from:SUPPORT_ID,senderName:"الدعم الفني",time:nowStr(),type:"system_info",isSupport:true,createdAt:Date.now()});
+    await update(ref(db,`support/ticket_${user.uid}/info`),{status:"awaiting_human",ticketNum});
+    await update(ref(db,`userChats/${user.uid}/${activeChat}`),{lastMessage:"تم إرسال طلبك",lastTime:nowStr(),order:Date.now()});
+  },[activeChat,user,userData]);
 
   const handleFile=useCallback((file,isImg)=>{
     if(!file) return;
@@ -462,18 +608,15 @@ export default function App() {
     if(editProfile.username!==userData?.username){
       if(editProfile.username.length<5){alert("اسم المستخدم 5 أحرف على الأقل");return;}
       if(/^\d/.test(editProfile.username)){alert("اسم المستخدم لا يبدأ برقم");return;}
-      if(!/^[a-zA-Z][a-zA-Z0-9_]{4,}$/.test(editProfile.username)){alert("اسم المستخدم: حروف وأرقام فقط، يبدأ بحرف");return;}
+      if(!/^[a-zA-Z][a-zA-Z0-9_]{4,}$/.test(editProfile.username)){alert("حروف وأرقام فقط، يبدأ بحرف");return;}
       const usSnap=await get(ref(db,`usernames/${editProfile.username.toLowerCase()}`));
       if(usSnap.exists()&&usSnap.val()!==user.uid){alert("اسم المستخدم مستخدم بالفعل");return;}
       if(userData?.username) await remove(ref(db,`usernames/${userData.username}`));
       await set(ref(db,`usernames/${editProfile.username.toLowerCase()}`),user.uid);
-      // Notify user via bot
-      const botId=`bot_${user.uid}`;
-      const nid=uidGen();
-      await set(ref(db,`messages/${botId}/${nid}`),{id:nid,chatId:botId,text:`🔄 تم تغيير اسم المستخدم\nمن: @${userData?.username}\nإلى: @${editProfile.username}\n🕐 ${nowFull()}`,from:APP_BOT_ID,senderName:"DFGFD",time:nowStr(),type:"text",isBot:true,createdAt:Date.now()});
+      const botId=`bot_${user.uid}`;const nid=uidGen();
+      await set(ref(db,`messages/${botId}/${nid}`),{id:nid,chatId:botId,text:`🔄 تم تغيير اسم المستخدم\nمن: @${userData?.username}\nإلى: @${editProfile.username}\n🕐 ${nowFull()}`,from:APP_BOT_ID,senderName:"DFGFD",time:nowStr(),type:"text",isOfficialBot:true,createdAt:Date.now()});
     }
-    const updates={displayName:editProfile.displayName,username:editProfile.username.toLowerCase(),bio:editProfile.bio,photoURL:editProfile.photo};
-    await update(ref(db,`users/${user.uid}`),updates);
+    await update(ref(db,`users/${user.uid}`),{displayName:editProfile.displayName,username:editProfile.username.toLowerCase(),bio:editProfile.bio,photoURL:editProfile.photo});
     await updateProfile(user,{displayName:editProfile.displayName});
     const snap=await get(ref(db,`users/${user.uid}`));
     if(snap.exists())setUserData(snap.val());
@@ -485,8 +628,6 @@ export default function App() {
     if(newForm.username){
       if(newForm.username.length<5){alert("اسم المستخدم 5 أحرف على الأقل");return;}
       if(/^\d/.test(newForm.username)){alert("اسم المستخدم لا يبدأ برقم");return;}
-      const ex=await get(ref(db,`chatUsernames/${newForm.username.toLowerCase()}`));
-      if(ex.exists()){alert("اسم المستخدم مستخدم لقناة/مجموعة أخرى");return;}
     }
     const chatId=uidGen();
     const chatData={id:chatId,type,name:newForm.name.trim(),username:(newForm.username||chatId.slice(0,8)).toLowerCase(),bio:newForm.bio||"",photoURL:"",ownerId:user.uid,members:[user.uid],admins:[user.uid],verified:false,createdAt:Date.now(),...(type==="channel"?{subscribers:1,subscribersList:[user.uid]}:{})};
@@ -514,7 +655,7 @@ export default function App() {
   },[user,chats,openChat]);
 
   const openPrivateChat=useCallback(async targetUser=>{
-    if(!user||targetUser.uid===user.uid) return;
+    if(!user||!targetUser?.uid||targetUser.uid===user.uid) return;
     const chatId=`pm_${[user.uid,targetUser.uid].sort().join("_")}`;
     const snap=await get(ref(db,`chats/${chatId}`));
     if(!snap.exists()){
@@ -523,7 +664,6 @@ export default function App() {
       await set(ref(db,`userChats/${user.uid}/${chatId}`),{chatId,lastMessage:"",lastTime:"",unread:0,order:Date.now(),...cd});
       await set(ref(db,`userChats/${targetUser.uid}/${chatId}`),{chatId,lastMessage:"",lastTime:"",unread:0,order:Date.now(),...cd});
     }
-    setSearchMode(false);setSearch("");setModal(null);
     openChat(chatId,snap.exists()?snap.val():{id:chatId,type:"private",name:targetUser.displayName,color:targetUser.color,photoURL:targetUser.photoURL});
   },[user,openChat]);
 
@@ -532,51 +672,67 @@ export default function App() {
     await update(ref(db,`chats/${channelSettings.id}`),{name:channelSettings.name,bio:channelSettings.bio||"",username:(channelSettings.username||"").toLowerCase(),photoURL:channelSettings.photoURL||"",permissions:channelSettings.permissions||{}});
     if(channelSettings.username) await set(ref(db,`chatUsernames/${channelSettings.username.toLowerCase()}`),channelSettings.id);
     const snap=await get(ref(db,`chats/${channelSettings.id}`));
-    if(snap.exists()){setActiveChatData(snap.val());if(activeChat===channelSettings.id)setActiveChatData(snap.val());}
-    setModal(null);
-    alert("✅ تم حفظ إعدادات القناة");
-  },[channelSettings,activeChat]);
+    if(snap.exists()) setActiveChatData(snap.val());
+    setModal(null);alert("✅ تم حفظ إعدادات القناة");
+  },[channelSettings]);
+
+  const openBotFather=useCallback(async()=>{
+    if(!user) return;
+    const bfChatId=`botfather_${user.uid}`;
+    const snap=await get(ref(db,`chats/${bfChatId}`));
+    if(!snap.exists()){
+      const cd={id:bfChatId,type:"official_bot",name:"BotFather",username:"botfather",isOfficial:true,verified:true,members:[user.uid,BOT_FATHER_ID],createdAt:Date.now(),photoURL:""};
+      await set(ref(db,`chats/${bfChatId}`),cd);
+      await set(ref(db,`userChats/${user.uid}/${bfChatId}`),{chatId:bfChatId,lastMessage:"أنشئ بوتك الآن",lastTime:nowStr(),unread:1,order:Date.now(),type:"official_bot",name:"BotFather",verified:true,color:"#9C27B0"});
+      const wid=uidGen();
+      await set(ref(db,`messages/${bfChatId}/${wid}`),{id:wid,chatId:bfChatId,text:"مرحباً! أنا BotFather ✈️\n\nأرسل /newbot لإنشاء بوت جديد\n/mybots لعرض بوتاتك",from:BOT_FATHER_ID,senderName:"BotFather",time:nowStr(),type:"text",isOfficialBot:true,createdAt:Date.now()});
+    }
+    openChat(bfChatId,{id:bfChatId,type:"official_bot",name:"BotFather",username:"botfather",verified:true});
+    setModal(null);setShowMenu(false);
+  },[user,openChat]);
 
   const EMOJIS=["😀","😂","😍","😊","🥳","😎","🤩","😭","😤","🥺","❤️","🔥","💯","⭐","🎉","👍","👋","🙏","💪","✅","🚀","💡","🎵","🌟","😅","🤔","💬","📱","🎯","🏆","💎","🌈","🎁","🍕","☕","🌸","🦋","🎮","📸","🔑"];
 
   const isChannel=activeChatData?.type==="channel";
   const isGroup=activeChatData?.type==="group";
-  const isBot=activeChatData?.type==="bot";
+  const isOfficialBot=activeChatData?.type==="official_bot";
   const isSaved=activeChatData?.type==="saved";
+  const isSupport=activeChatData?.type==="support";
   const isMine=activeChatData?.ownerId===user?.uid;
   const canSend=!isChannel||(isChannel&&isMine);
+  const chatName=activeChatData?.name||"محادثة";
+  const chatType=activeChatData?.type;
 
-  if(authLoading) return (
-    <div style={{height:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"16px",fontFamily:"'Segoe UI',Tahoma,sans-serif"}}>
-      <div style={{fontSize:"56px",animation:"spin 1.2s linear infinite"}}>✈️</div>
-      <div style={{color:T.text,fontSize:"22px",fontWeight:"900",letterSpacing:"2px"}}>تيرمين</div>
-      <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0}`}</style>
-    </div>
-  );
-
-  if(!user) return <AuthScreen/>;
-
-  // ─ Search Results ─
+  // Search results renderer
   const renderSearch=()=>(
     <div style={{overflowY:"auto",flex:1}}>
       {!searchResults.length&&search.trim()&&<div style={{padding:"40px",textAlign:"center",color:T.textSec,fontSize:"14px"}}>لا توجد نتائج لـ "{search}"</div>}
       {searchResults.map((r,i)=>{
         const isU=r.resultType==="user";
         const isCh=r.resultType==="channel";
+        const isBot=r.resultType==="official_bot"||r.resultType==="bot";
         return (
           <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${T.border}18`,transition:"background 0.15s"}}
             onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
-            onClick={()=>{if(isU)openPrivateChat(r);else if(isCh)joinChannel(r);else openChat(r.id,r);}}>
-            <Av name={r.name||r.displayName} color={r.color||rColor(r.name||r.displayName)} size={46} verified={r.verified} photo={r.photoURL} fraud={r.isFraud} bot={r.resultType==="bot"}/>
+            onClick={()=>{
+              if(isU) openPrivateChat(r);
+              else if(isCh) joinChannel(r);
+              else if(isBot) openChat(r.id,r);
+              else openChat(r.id,r);
+            }}>
+            <Av name={r.name||r.displayName} color={r.color||rColor(r.name||r.displayName)} size={46} verified={r.verified} photo={r.photoURL} fraud={r.isFraud}/>
             <div style={{flex:1}}>
               <div style={{color:T.text,fontWeight:"600",fontSize:"14.5px",display:"flex",alignItems:"center",gap:"5px"}}>
                 {isCh&&<Ic n="channel" s={12} c={T.gold}/>}
                 {r.resultType==="group"&&<Ic n="group" s={12} c={T.accentBtn}/>}
+                {isBot&&<span style={{fontSize:"12px"}}>🤖</span>}
                 {r.name||r.displayName}
                 {r.verified&&<Ic n="check" s={12} c={T.verified}/>}
                 {r.isFraud&&<span style={{color:T.danger,fontSize:"10px",background:`${T.danger}20`,padding:"1px 5px",borderRadius:"5px"}}>احتيال</span>}
               </div>
-              <div style={{color:T.textSec,fontSize:"12px"}}>@{r.username} · {isCh?`${r.subscribers||0} مشترك`:r.resultType==="group"?`${r.members?.length||0} عضو`:"مستخدم"}</div>
+              <div style={{color:T.textSec,fontSize:"12px"}}>
+                @{r.username} · {isCh?`${fmtSubs(r.subscribers||0)} مشترك`:r.resultType==="group"?`${r.members?.length||0} عضو`:"مستخدم"}
+              </div>
             </div>
             {isCh&&!chats.find(c=>(c.id||c.chatId)===r.id)&&(
               <button onClick={e=>{e.stopPropagation();joinChannel(r);}} style={{background:`${T.accentBtn}20`,border:`1px solid ${T.accentBtn}40`,borderRadius:"8px",padding:"6px 12px",color:T.accentBtn,cursor:"pointer",fontFamily:"inherit",fontSize:"12px",fontWeight:"600"}}>انضمام</button>
@@ -587,29 +743,33 @@ export default function App() {
     </div>
   );
 
-  // ─ Chat Area ─
-  const chatName=activeChatData?.name||"محادثة";
-  const chatType=activeChatData?.type;
+  if(authLoading) return (
+    <div style={{height:"100vh",background:T.bg,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"16px",fontFamily:"'Segoe UI',Tahoma,sans-serif"}}>
+      <div style={{fontSize:"56px",animation:"spin 1.2s linear infinite"}}>✈️</div>
+      <div style={{color:T.text,fontSize:"22px",fontWeight:"900"}}>تيرمين</div>
+      <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}} *{box-sizing:border-box;margin:0;padding:0}`}</style>
+    </div>
+  );
+
+  if(!user) return <AuthScreen/>;
 
   return (
     <div style={{display:"flex",height:"100vh",width:"100%",background:T.bg,fontFamily:"'Segoe UI',Tahoma,sans-serif",direction:"rtl",overflow:"hidden"}}
       onClick={()=>{setShowMenu(false);setAttachMenu(false);setCtxMenu(null);setShowEmoji(false);}}>
 
-      {/* ─ SIDEBAR ─ */}
+      {/* SIDEBAR */}
       <div style={{width:showSidebar?(isMobile?"100%":"360px"):"0",minWidth:0,background:T.sidebar,borderLeft:`1px solid ${T.border}`,display:"flex",flexDirection:"column",flexShrink:0,overflow:"hidden",transition:"width 0.25s",position:isMobile?"absolute":"relative",height:"100%",zIndex:isMobile?20:1}}>
-
         {/* Top Bar */}
         <div style={{padding:"10px 12px",display:"flex",alignItems:"center",gap:"8px",borderBottom:`1px solid ${T.border}`,background:T.sidebar,position:"relative",zIndex:50}}>
           {bottomTab==="chats"&&(<>
             <button onClick={e=>{e.stopPropagation();setShowMenu(!showMenu);}} style={{background:"none",border:"none",cursor:"pointer",padding:"6px",borderRadius:"50%",display:"flex"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="menu" s={20}/></button>
-            <div style={{flex:1,display:"flex",alignItems:"center",background:T.inputBg,borderRadius:"22px",padding:"7px 14px",gap:"8px",cursor:"text"}} onClick={()=>setSearchMode(true)}>
+            <div style={{flex:1,display:"flex",alignItems:"center",background:T.inputBg,borderRadius:"22px",padding:"7px 14px",gap:"8px"}} onClick={()=>setSearchMode(true)}>
               <Ic n="search" s={15}/>
               <input value={search} onChange={e=>{setSearch(e.target.value);setSearchMode(true);}} onFocus={()=>setSearchMode(true)} placeholder="بحث..." style={{background:"none",border:"none",outline:"none",color:T.text,fontSize:"14px",flex:1,direction:"rtl",fontFamily:"inherit"}}/>
-              {searchMode&&search&&<button onClick={()=>{setSearch("");setSearchMode(false);}} style={{background:"none",border:"none",cursor:"pointer"}}><Ic n="close" s={14}/></button>}
+              {search&&<button onClick={()=>{setSearch("");setSearchMode(false);}} style={{background:"none",border:"none",cursor:"pointer"}}><Ic n="close" s={14}/></button>}
             </div>
           </>)}
           {bottomTab!=="chats"&&<div style={{flex:1,color:T.text,fontSize:"16px",fontWeight:"800",paddingRight:"6px"}}>{bottomTab==="settings"?"الإعدادات":bottomTab==="contacts"?"جهات الاتصال":""}</div>}
-
           {/* Dropdown */}
           {showMenu&&(
             <div style={{position:"absolute",top:"54px",right:"8px",background:"#1c2d3d",borderRadius:"13px",padding:"6px 0",boxShadow:"0 8px 32px rgba(0,0,0,0.5)",zIndex:300,minWidth:"210px",border:`1px solid ${T.border}`}} onClick={e=>e.stopPropagation()}>
@@ -617,8 +777,9 @@ export default function App() {
                 {n:"user",l:"محادثة جديدة",a:()=>{setModal("newChat");setShowMenu(false);}},
                 {n:"group",l:"مجموعة جديدة",a:()=>{setModal("newGroup");setShowMenu(false);}},
                 {n:"channel",l:"قناة جديدة",a:()=>{setModal("newChannel");setShowMenu(false);}},
+                {n:"bot",l:"BotFather",a:openBotFather},
                 {n:"saved",l:"رسائل محفوظة",a:()=>{const s=chats.find(c=>c.type==="saved");if(s)openChat(s.chatId||s.id,s);setShowMenu(false);}},
-                {n:"support",l:"الدعم الفني",a:()=>{setModal("support");setShowMenu(false);}},
+                {n:"support",l:"الدعم الفني",a:()=>{openSupportChat();setShowMenu(false);}},
                 {n:"settings",l:"الإعدادات",a:()=>{setBottomTab("settings");setShowMenu(false);}},
                 ...(isOwner?[{n:"crown",l:"لوحة الإدارة",a:()=>{window.open("/admin","_blank");setShowMenu(false);}}]:[]),
               ].map(item=>(
@@ -640,14 +801,14 @@ export default function App() {
           </div>
         )}
 
-        {/* Content */}
+        {/* Sidebar Content */}
         <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column"}}>
-          {bottomTab==="settings"&&<SettingsPanel user={user} userData={userData} setUserData={setUserData} isOwner={isOwner} setModal={setModal}/>}
+          {bottomTab==="settings"&&<SettingsPanel user={user} userData={userData} setUserData={setUserData} isOwner={isOwner} openSupportChat={openSupportChat} setModal={setModal}/>}
           {bottomTab==="contacts"&&(
-            <div style={{overflowY:"auto",padding:"12px"}}>
+            <div style={{padding:"12px"}}>
               <div style={{color:T.textSec,fontSize:"13px",fontWeight:"600",padding:"8px 4px"}}>جهات الاتصال</div>
               {chats.filter(c=>c.type==="private").map(c=>(
-                <div key={c.id||c.chatId} onClick={()=>openChat(c.chatId||c.id,c)} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px",borderRadius:"12px",cursor:"pointer",marginBottom:"4px",transition:"background 0.15s"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div key={c.id||c.chatId} onClick={()=>openChat(c.chatId||c.id,c)} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px",borderRadius:"12px",cursor:"pointer",marginBottom:"4px"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                   <Av name={c.name} color={c.color||rColor(c.name)} size={44}/>
                   <div style={{color:T.text,fontWeight:"600",fontSize:"14px"}}>{c.name}</div>
                 </div>
@@ -662,25 +823,28 @@ export default function App() {
                 const cid=chat.id||chat.chatId;
                 const isActive=activeChat===cid;
                 const name=chat.name||"محادثة";
+                const isOB=chat.type==="official_bot";
+                const isSup=chat.type==="support";
                 return (
                   <div key={cid} onClick={()=>openChat(cid,chat)} style={{display:"flex",alignItems:"center",gap:"12px",padding:"9px 14px",cursor:"pointer",background:isActive?T.accent:"transparent",borderBottom:`1px solid ${T.border}18`,transition:"background 0.15s"}}
                     onMouseEnter={e=>{if(!isActive)e.currentTarget.style.background=T.hover;}} onMouseLeave={e=>{if(!isActive)e.currentTarget.style.background="transparent";}}>
-                    <Av name={name} color={chat.color||rColor(name)} size={52} online={chat.type==="private"} verified={chat.verified} photo={chat.photoURL} bot={chat.type==="bot"}/>
+                    <Av name={name} color={chat.color||rColor(name)} size={52} online={chat.type==="private"} verified={chat.verified||isOB} photo={chat.photoURL}/>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <span style={{color:T.text,fontWeight:"600",fontSize:"15px",display:"flex",alignItems:"center",gap:"4px"}}>
                           {chat.type==="channel"&&<Ic n="channel" s={11} c={T.gold}/>}
                           {chat.type==="group"&&<Ic n="group" s={11} c={T.accentBtn}/>}
                           {chat.type==="saved"&&<Ic n="saved" s={11} c={T.accentBtn}/>}
-                          {chat.type==="bot"&&<Ic n="bot" s={11} c={T.gold}/>}
+                          {isOB&&<span style={{fontSize:"11px"}}>✈️</span>}
+                          {isSup&&<span style={{fontSize:"11px"}}>🆘</span>}
                           <span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"150px"}}>{name}</span>
-                          {chat.verified&&<Ic n="check" s={11} c={T.verified}/>}
+                          {(chat.verified||isOB)&&<Ic n="check" s={11} c={T.verified}/>}
                         </span>
                         <span style={{color:T.textSec,fontSize:"11px",flexShrink:0}}>{chat.lastTime}</span>
                       </div>
                       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:"2px"}}>
-                        <span style={{color:T.textSec,fontSize:"13px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"180px"}}>{chat.lastMessage}</span>
-                        {chat.unread>0&&<span style={{background:T.unread,color:"#fff",borderRadius:"12px",minWidth:"20px",height:"20px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",padding:"0 5px",flexShrink:0}}>{chat.unread>99?"99+":chat.unread}</span>}
+                        <span style={{color:T.textSec,fontSize:"13px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"180px"}}>{isSup?(chat.subtitle||"الدعم"):chat.lastMessage}</span>
+                        {chat.unread>0&&<span style={{background:T.unread,color:"#fff",borderRadius:"12px",minWidth:"20px",height:"20px",display:"flex",alignItems:"center",justifyContent:"center",fontSize:"11px",fontWeight:"700",padding:"0 5px"}}>{chat.unread>99?"99+":chat.unread}</span>}
                       </div>
                     </div>
                   </div>
@@ -693,13 +857,13 @@ export default function App() {
         {/* FAB */}
         {bottomTab==="chats"&&!searchMode&&(
           <div style={{padding:"8px 14px 5px",borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"flex-end",background:T.sidebar}}>
-            <button onClick={e=>{e.stopPropagation();setModal("fabMenu");}} style={{background:T.accentBtn,border:"none",borderRadius:"50%",width:"46px",height:"46px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 4px 14px rgba(82,136,193,0.45)",transition:"transform 0.2s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
+            <button onClick={e=>{e.stopPropagation();setModal("fabMenu");}} style={{background:T.accentBtn,border:"none",borderRadius:"50%",width:"46px",height:"46px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",boxShadow:"0 4px 14px rgba(82,136,193,0.45)"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>
               <Ic n="plus" s={22} c="#fff"/>
             </button>
           </div>
         )}
 
-        {/* Bottom Tab Bar */}
+        {/* Bottom Tab */}
         <div style={{display:"flex",background:T.tabBar,borderTop:`1px solid ${T.border}`,padding:"6px 0"}}>
           {[{k:"chats",n:"menu",l:"المحادثات"},{k:"contacts",n:"contacts",l:"جهات الاتصال"},{k:"settings",n:"settings",l:"الإعدادات"}].map(tab=>(
             <button key={tab.k} onClick={()=>{setBottomTab(tab.k);setSearchMode(false);setSearch("");}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:"3px",background:"none",border:"none",cursor:"pointer",padding:"6px 4px"}}>
@@ -710,11 +874,11 @@ export default function App() {
         </div>
       </div>
 
-      {/* ─ MAIN AREA ─ */}
+      {/* MAIN */}
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
         {!activeChat?(
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:"16px",padding:"40px"}}>
-            <div style={{fontSize:"72px",filter:"drop-shadow(0 8px 24px rgba(82,136,193,0.3))"}}>✈️</div>
+            <div style={{fontSize:"72px"}}>✈️</div>
             <div style={{textAlign:"center"}}>
               <div style={{color:T.text,fontSize:"26px",fontWeight:"900",letterSpacing:"2px"}}>تيرمين</div>
               <div style={{color:T.textSec,fontSize:"13px",marginTop:"6px"}}>اختر محادثة للبدء</div>
@@ -726,20 +890,23 @@ export default function App() {
             <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:"10px",background:T.sidebar,borderBottom:`1px solid ${T.border}`,flexShrink:0}}>
               {isMobile&&<button onClick={()=>{setShowSidebar(true);setActiveChat(null);setActiveChatData(null);}} style={{background:"none",border:"none",cursor:"pointer",padding:"4px",display:"flex"}}><Ic n="back" s={22}/></button>}
               <div style={{display:"flex",alignItems:"center",gap:"11px",flex:1,cursor:"pointer"}} onClick={()=>setShowInfo(!showInfo)}>
-                <Av name={chatName} color={activeChatData?.color||rColor(chatName)} size={40} online={chatType==="private"} verified={activeChatData?.verified} photo={activeChatData?.photoURL} bot={isBot}/>
+                <Av name={chatName} color={activeChatData?.color||rColor(chatName)} size={40} online={chatType==="private"} verified={activeChatData?.verified||isOfficialBot} photo={activeChatData?.photoURL}/>
                 <div>
                   <div style={{color:T.text,fontWeight:"700",fontSize:"15px",display:"flex",alignItems:"center",gap:"5px"}}>
                     {chatName}
-                    {activeChatData?.verified&&<Ic n="check" s={13} c={T.verified}/>}
-                    {isBot&&<span style={{color:T.gold,fontSize:"10px",background:`${T.gold}20`,padding:"1px 5px",borderRadius:"6px",fontWeight:"700"}}>بوت</span>}
+                    {(activeChatData?.verified||isOfficialBot)&&<Ic n="check" s={13} c={T.verified}/>}
                   </div>
                   <div style={{color:T.textSec,fontSize:"12px"}}>
-                    {isSaved?"رسائلك المحفوظة":isBot?"مساعد رسمي ✈️":isGroup?`${activeChatData?.members?.length||0} عضو`:isChannel?`${activeChatData?.subscribers||0} مشترك`:""}
+                    {isSaved?"رسائلك المحفوظة":
+                     isSupport?"الدعم":
+                     isOfficialBot?`✈️ مساعد رسمي`:
+                     isGroup?`${activeChatData?.members?.length||0} عضو`:
+                     isChannel?`${fmtSubs(activeChatData?.subscribers||0)} مشترك`:""}
                   </div>
                 </div>
               </div>
               <div style={{display:"flex",gap:"2px"}}>
-                {!isBot&&!isSaved&&<button style={{background:"none",border:"none",cursor:"pointer",padding:"7px",borderRadius:"50%",display:"flex"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="call" s={20}/></button>}
+                {!isOfficialBot&&!isSaved&&!isSupport&&<button style={{background:"none",border:"none",cursor:"pointer",padding:"7px",borderRadius:"50%",display:"flex"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="call" s={20}/></button>}
                 <button style={{background:"none",border:"none",cursor:"pointer",padding:"7px",borderRadius:"50%",display:"flex"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="search" s={20}/></button>
                 <button onClick={e=>{e.stopPropagation();if(isChannel&&isMine){setChannelSettings({...activeChatData});setModal("channelSettings");}else setShowInfo(!showInfo);}} style={{background:"none",border:"none",cursor:"pointer",padding:"7px",borderRadius:"50%",display:"flex"}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="more" s={20}/></button>
               </div>
@@ -759,19 +926,20 @@ export default function App() {
 
             {/* Messages */}
             <div style={{flex:1,overflowY:"auto",padding:"12px 16px",background:T.bg,display:"flex",flexDirection:"column",gap:"2px"}}>
-              {!messages.length&&<div style={{margin:"auto",textAlign:"center",color:T.textSec}}><div style={{fontSize:"40px",marginBottom:"10px"}}>{isSaved?"🔖":isBot?"🤖":"👋"}</div><div style={{fontSize:"14px"}}>{isSaved?"لا توجد رسائل محفوظة":isBot?"ابدأ المحادثة مع البوت":"ابدأ المحادثة!"}</div></div>}
+              {!messages.length&&<div style={{margin:"auto",textAlign:"center",color:T.textSec}}><div style={{fontSize:"40px",marginBottom:"10px"}}>{isSaved?"🔖":isSupport?"🆘":isOfficialBot?"✈️":"👋"}</div><div style={{fontSize:"14px"}}>{isSaved?"لا توجد رسائل محفوظة":isSupport?"ابدأ بكتابة مشكلتك وسيرد الذكاء الاصطناعي فوراً":"ابدأ المحادثة!"}</div></div>}
               {messages.map((msg,idx)=>{
                 const isMe=msg.from===user?.uid;
-                const isSystem=msg.type==="system";
-                const isBotMsg=msg.isBot||msg.from===APP_BOT_ID||msg.from==="ai_bot";
+                const isSystem=msg.type==="system"||msg.type==="system_info";
+                const isOB=msg.isOfficialBot||msg.from===APP_BOT_ID||msg.from===BOT_FATHER_ID;
+                const isSup=msg.isSupport||msg.from===SUPPORT_ID;
                 const showSender=!isMe&&isGroup&&(idx===0||messages[idx-1]?.from!==msg.from);
                 if(isSystem) return <div key={msg.id} style={{textAlign:"center",margin:"6px 0"}}><span style={{background:`${T.accentBtn}20`,color:T.textSec,borderRadius:"12px",padding:"4px 14px",fontSize:"12px"}}>{msg.text}</span></div>;
                 return (
                   <div key={msg.id} style={{display:"flex",justifyContent:isMe?"flex-start":"flex-end",marginBottom:"1px",animation:"msgIn 0.2s ease"}}
                     onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,msg});}}>
-                    <div style={{maxWidth:"72%",padding:"8px 11px 5px",borderRadius:isMe?"16px 16px 16px 4px":"16px 16px 4px 16px",background:isMe?T.msgOut:isBotMsg?"#1a3040":T.msgIn,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}>
+                    <div style={{maxWidth:"72%",padding:"8px 11px 5px",borderRadius:isMe?"16px 16px 16px 4px":"16px 16px 4px 16px",background:isMe?T.msgOut:isOB||isSup?"#1a3040":T.msgIn,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"}}>
                       {showSender&&<div style={{color:T.accentBtn,fontSize:"12px",fontWeight:"700",marginBottom:"3px"}}>{msg.senderName}</div>}
-                      {isBotMsg&&!isMe&&<div style={{color:T.gold,fontSize:"11px",fontWeight:"700",marginBottom:"3px"}}>⭐ {msg.senderName||"DFGFD"}</div>}
+                      {(isOB||isSup)&&!isMe&&<div style={{color:T.gold,fontSize:"11px",fontWeight:"700",marginBottom:"3px",display:"flex",alignItems:"center",gap:"4px"}}><Ic n="check" s={11} c={T.gold}/>⭐ {msg.senderName||"رسمي"}</div>}
                       {msg.replyTo&&<div style={{background:"rgba(255,255,255,0.07)",borderRadius:"8px",padding:"5px 10px",marginBottom:"6px",borderRight:`3px solid ${T.accentBtn}`}}><div style={{color:T.accentBtn,fontSize:"11px",fontWeight:"700"}}>{msg.replyTo.sender}</div><div style={{color:T.textSec,fontSize:"12px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"200px"}}>{msg.replyTo.text}</div></div>}
                       {msg.type==="image"&&<div style={{marginBottom:"4px"}}><img src={msg.imageUrl} alt="" style={{maxWidth:"240px",maxHeight:"280px",borderRadius:"10px",display:"block",width:"100%",objectFit:"cover"}}/>{msg.text&&<div style={{color:T.text,fontSize:"14px",marginTop:"5px"}}>{msg.text}</div>}</div>}
                       {msg.type==="file"&&<a href={msg.fileData} download={msg.fileName} style={{display:"flex",alignItems:"center",gap:"10px",textDecoration:"none",background:"rgba(255,255,255,0.07)",borderRadius:"10px",padding:"10px 12px",marginBottom:"4px"}}><Ic n="file" s={26} c={T.accentBtn}/><div><div style={{color:T.text,fontSize:"13px",fontWeight:"600",wordBreak:"break-all"}}>{msg.fileName}</div><div style={{color:T.textSec,fontSize:"11px"}}>{fmtSize(msg.fileSize)}</div></div></a>}
@@ -783,6 +951,15 @@ export default function App() {
               })}
               <div ref={endRef}/>
             </div>
+
+            {/* Support escalate button */}
+            {isSupport&&(
+              <div style={{padding:"8px 14px",background:T.panel,borderTop:`1px solid ${T.border}`,display:"flex",justifyContent:"center"}}>
+                <button onClick={escalateToHuman} style={{background:`${"#4CAF50"}15`,border:`1px solid ${"#4CAF50"}40`,borderRadius:"10px",padding:"8px 20px",color:"#4CAF50",cursor:"pointer",fontFamily:"inherit",fontSize:"13px",fontWeight:"700"}}>
+                  📞 التحويل للدعم البشري
+                </button>
+              </div>
+            )}
 
             {/* Input */}
             {canSend?(
@@ -803,9 +980,10 @@ export default function App() {
                 )}
                 <div style={{display:"flex",alignItems:"center",gap:"6px"}}>
                   <button onClick={e=>{e.stopPropagation();setShowEmoji(!showEmoji);setAttachMenu(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:"6px",borderRadius:"50%",fontSize:"20px",flexShrink:0}}>😊</button>
-                  {!isSaved&&!isBot&&<button onClick={e=>{e.stopPropagation();setAttachMenu(!attachMenu);setShowEmoji(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:"7px",borderRadius:"50%",display:"flex",flexShrink:0}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="attach" s={20}/></button>}
+                  {!isSaved&&!isOfficialBot&&<button onClick={e=>{e.stopPropagation();setAttachMenu(!attachMenu);setShowEmoji(false);}} style={{background:"none",border:"none",cursor:"pointer",padding:"7px",borderRadius:"50%",display:"flex",flexShrink:0}} onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}><Ic n="attach" s={20}/></button>}
                   <div style={{flex:1,background:T.inputBg,borderRadius:"22px",padding:"8px 14px"}}>
-                    <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}} placeholder={isSaved?"احفظ ملاحظاتك...":isChannel?"نشر في القناة...":"اكتب رسالة..."} rows={1}
+                    <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();sendMessage();}}}
+                      placeholder={isSaved?"احفظ ملاحظاتك...":isChannel?"نشر في القناة...":isSupport?"اكتب مشكلتك...":isOfficialBot?"أرسل أمراً...":"اكتب رسالة..."} rows={1}
                       style={{background:"none",border:"none",outline:"none",color:T.text,fontSize:"14.5px",width:"100%",direction:"rtl",fontFamily:"inherit",resize:"none",lineHeight:"1.5",maxHeight:"90px",overflowY:"auto"}}/>
                   </div>
                   <button onClick={()=>input.trim()&&sendMessage()} style={{background:input.trim()?T.accentBtn:T.inputBg,border:"none",borderRadius:"50%",width:"42px",height:"42px",display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",flexShrink:0,transition:"all 0.2s",boxShadow:input.trim()?"0 4px 12px rgba(82,136,193,0.4)":"none"}}>
@@ -818,35 +996,11 @@ export default function App() {
             ):(
               <div style={{padding:"13px",background:T.sidebar,borderTop:`1px solid ${T.border}`,textAlign:"center",color:T.textSec,fontSize:"13px"}}>📢 فقط صاحب القناة يمكنه النشر</div>
             )}
-
-            {/* Info Panel */}
-            {showInfo&&activeChatData&&(
-              <div style={{position:isMobile?"absolute":"relative",right:0,top:0,bottom:0,width:"260px",background:T.sidebar,borderLeft:`1px solid ${T.border}`,display:"flex",flexDirection:"column",overflowY:"auto",flexShrink:0,zIndex:isMobile?50:1}}>
-                <div style={{padding:"13px 14px",borderBottom:`1px solid ${T.border}`,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                  <span style={{color:T.text,fontWeight:"700",fontSize:"15px"}}>المعلومات</span>
-                  <button onClick={()=>setShowInfo(false)} style={{background:"none",border:"none",cursor:"pointer"}}><Ic n="close" s={17}/></button>
-                </div>
-                <div style={{padding:"20px 14px",display:"flex",flexDirection:"column",alignItems:"center",gap:"10px",borderBottom:`1px solid ${T.border}`}}>
-                  <Av name={activeChatData.name} color={activeChatData.color||rColor(activeChatData.name)} size={70} verified={activeChatData.verified} photo={activeChatData.photoURL}/>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{color:T.text,fontWeight:"700",fontSize:"16px",display:"flex",alignItems:"center",gap:"5px",justifyContent:"center"}}>{activeChatData.name}{activeChatData.verified&&<Ic n="check" s={14} c={T.verified}/>}</div>
-                    {activeChatData.username&&<div style={{color:T.textSec,fontSize:"12px"}}>@{activeChatData.username}</div>}
-                    {activeChatData.bio&&<div style={{color:T.textSec,fontSize:"12px",marginTop:"6px",lineHeight:"1.5"}}>{activeChatData.bio}</div>}
-                    <div style={{color:T.textSec,fontSize:"12px",marginTop:"4px"}}>{isChannel?`📢 ${activeChatData.subscribers||0} مشترك`:isGroup?`👥 ${activeChatData.members?.length||0} عضو`:""}</div>
-                  </div>
-                </div>
-                {isChannel&&isMine&&(
-                  <div style={{padding:"12px 14px"}}>
-                    <button onClick={()=>{setChannelSettings({...activeChatData});setModal("channelSettings");}} style={{width:"100%",padding:"10px",background:`${T.accentBtn}15`,border:`1px solid ${T.accentBtn}25`,borderRadius:"10px",color:T.accentBtn,cursor:"pointer",fontFamily:"inherit",fontSize:"13.5px",fontWeight:"600",display:"flex",alignItems:"center",justifyContent:"center",gap:"7px"}}><Ic n="settings" s={15} c={T.accentBtn}/> إدارة القناة</button>
-                  </div>
-                )}
-              </div>
-            )}
           </>
         )}
       </div>
 
-      {/* ─ Context Menu ─ */}
+      {/* Context Menu */}
       {ctxMenu&&(
         <div style={{position:"fixed",top:Math.min(ctxMenu.y,window.innerHeight-160),left:Math.min(ctxMenu.x,window.innerWidth-180),background:"#1c2d3d",borderRadius:"11px",padding:"5px 0",boxShadow:"0 8px 28px rgba(0,0,0,0.55)",zIndex:600,minWidth:"160px",border:`1px solid ${T.border}`}} onClick={e=>e.stopPropagation()}>
           {[
@@ -861,11 +1015,11 @@ export default function App() {
         </div>
       )}
 
-      {/* ─ FAB Menu ─ */}
+      {/* FAB Menu */}
       {modal==="fabMenu"&&(
         <div style={{position:"fixed",inset:0,zIndex:500}} onClick={()=>setModal(null)}>
           <div style={{position:"absolute",bottom:"80px",left:"20px",background:"#1c2d3d",borderRadius:"14px",padding:"8px 0",boxShadow:"0 8px 32px rgba(0,0,0,0.5)",border:`1px solid ${T.border}`,minWidth:"200px"}} onClick={e=>e.stopPropagation()}>
-            {[{ic:"user",l:"محادثة جديدة",a:()=>setModal("newChat")},{ic:"group",l:"مجموعة جديدة",a:()=>setModal("newGroup")},{ic:"channel",l:"قناة جديدة",a:()=>setModal("newChannel")}].map(item=>(
+            {[{ic:"user",l:"محادثة جديدة",a:()=>setModal("newChat")},{ic:"group",l:"مجموعة جديدة",a:()=>setModal("newGroup")},{ic:"channel",l:"قناة جديدة",a:()=>setModal("newChannel")},{ic:"bot",l:"BotFather",a:openBotFather}].map(item=>(
               <button key={item.l} onClick={item.a} style={{display:"flex",alignItems:"center",gap:"12px",width:"100%",padding:"12px 16px",background:"none",border:"none",color:T.text,cursor:"pointer",fontFamily:"inherit",fontSize:"14px",transition:"background 0.15s"}}
                 onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="none"}>
                 <Ic n={item.ic} s={18} c={T.accentBtn}/>{item.l}
@@ -875,7 +1029,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ─ Modals ─ */}
+      {/* MODALS */}
       {modal==="newChat"&&(
         <Modal title="محادثة جديدة" onClose={()=>setModal(null)}>
           <div style={{color:T.textSec,fontSize:"13px",marginBottom:"12px"}}>ابحث عن مستخدم:</div>
@@ -883,7 +1037,7 @@ export default function App() {
             style={{background:T.inputBg,border:`1px solid ${T.border}`,borderRadius:"12px",padding:"11px 14px",color:T.text,fontSize:"15px",outline:"none",direction:"rtl",fontFamily:"inherit",width:"100%",marginBottom:"12px",boxSizing:"border-box"}}/>
           <div style={{maxHeight:"300px",overflowY:"auto"}}>
             {searchResults.filter(r=>r.resultType==="user"&&r.uid!==user?.uid).map(u2=>(
-              <div key={u2.uid} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px",cursor:"pointer",borderRadius:"10px",marginBottom:"4px",transition:"background 0.15s"}}
+              <div key={u2.uid} style={{display:"flex",alignItems:"center",gap:"10px",padding:"10px",cursor:"pointer",borderRadius:"10px",marginBottom:"4px"}}
                 onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
                 onClick={()=>openPrivateChat(u2)}>
                 <Av name={u2.displayName} color={u2.color||rColor(u2.displayName)} size={38} verified={u2.verified} photo={u2.photoURL}/>
@@ -921,7 +1075,7 @@ export default function App() {
           <div style={{display:"flex",flexDirection:"column",gap:"14px",alignItems:"center"}}>
             <div style={{position:"relative",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=ev=>setEditProfile(p=>({...p,photo:ev.target.result}));r.readAsDataURL(f);}};inp.click();}}>
               <Av name={editProfile.displayName||userData?.displayName} color={userData?.color||rColor(userData?.displayName||"")} size={72} photo={editProfile.photo}/>
-              <div style={{position:"absolute",bottom:0,right:0,background:T.accentBtn,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center"}}>📷</div>
+              <div style={{position:"absolute",bottom:0,right:0,background:T.accentBtn,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"12px"}}>📷</div>
             </div>
             <div style={{width:"100%",display:"flex",flexDirection:"column",gap:"11px"}}>
               <FInput label="الاسم الشخصي" value={editProfile.displayName} onChange={e=>setEditProfile(p=>({...p,displayName:e.target.value}))} placeholder="اسمك..."/>
@@ -939,19 +1093,18 @@ export default function App() {
             <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"8px"}}>
               <div style={{position:"relative",cursor:"pointer"}} onClick={()=>{const inp=document.createElement("input");inp.type="file";inp.accept="image/*";inp.onchange=e=>{const f=e.target.files[0];if(f){const r=new FileReader();r.onload=async ev=>{await update(ref(db,`chats/${channelSettings.id}`),{photoURL:ev.target.result});setChannelSettings(p=>({...p,photoURL:ev.target.result}));};r.readAsDataURL(f);}};inp.click();}}>
                 <Av name={channelSettings.name} color={rColor(channelSettings.name)} size={72} photo={channelSettings.photoURL}/>
-                <div style={{position:"absolute",bottom:0,right:0,background:T.accentBtn,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center"}}>📷</div>
+                <div style={{position:"absolute",bottom:0,right:0,background:T.accentBtn,borderRadius:"50%",width:24,height:24,display:"flex",alignItems:"center",justifyContent:"center",fontSize:"12px"}}>📷</div>
               </div>
-              <span style={{color:T.textSec,fontSize:"12px"}}>اضغط لتغيير صورة القناة</span>
             </div>
             <FInput label="اسم القناة" value={channelSettings.name} onChange={e=>setChannelSettings(p=>({...p,name:e.target.value}))} placeholder="اسم القناة..."/>
             <FInput label="اسم المستخدم (@)" value={channelSettings.username||""} onChange={e=>setChannelSettings(p=>({...p,username:e.target.value}))} placeholder="channel_username"/>
             <FInput label="النبذة" value={channelSettings.bio||""} onChange={e=>setChannelSettings(p=>({...p,bio:e.target.value}))} placeholder="وصف القناة..."/>
             <div style={{background:T.inputBg,borderRadius:"12px",padding:"14px",border:`1px solid ${T.border}`}}>
               <div style={{color:T.textSec,fontSize:"12px",fontWeight:"700",marginBottom:"12px"}}>صلاحيات القناة</div>
-              {[{k:"canComment",l:"السماح بالتعليقات"},{k:"canReactions",l:"السماح بالتفاعلات"},{k:"isPrivate",l:"قناة خاصة (غير قابلة للبحث)"}].map(perm=>(
+              {[{k:"canComment",l:"السماح بالتعليقات"},{k:"canReactions",l:"السماح بالتفاعلات"},{k:"isPrivate",l:"قناة خاصة"}].map(perm=>(
                 <div key={perm.k} style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:"10px"}}>
                   <span style={{color:T.text,fontSize:"14px"}}>{perm.l}</span>
-                  <Toggle checked={!!(channelSettings.permissions||{})[perm.k]} onChange={()=>setChannelSettings(p=>({...p,permissions:{...(p.permissions||{}),[perm.k]:!((p.permissions||{})[perm.k])}}))}/>
+                  <Toggle checked={!!((channelSettings.permissions||{})[perm.k])} onChange={()=>setChannelSettings(p=>({...p,permissions:{...(p.permissions||{}),[perm.k]:!((p.permissions||{})[perm.k])}}))}/>
                 </div>
               ))}
             </div>
@@ -960,27 +1113,33 @@ export default function App() {
         </Modal>
       )}
 
-      {modal==="support"&&(
-        <Modal title="الدعم الفني" onClose={()=>setModal(null)}>
-          <SupportWidget user={user} userData={userData} db={db} onClose={()=>setModal(null)}/>
-        </Modal>
-      )}
-
       {modal==="twoFactor"&&(
         <Modal title="التحقق بخطوتين" onClose={()=>setModal(null)}>
           <div style={{display:"flex",flexDirection:"column",gap:"14px",alignItems:"center",textAlign:"center"}}>
             <div style={{fontSize:"48px"}}>{userData?.twoFactor?"🔒":"🔓"}</div>
             <div style={{color:T.text,fontWeight:"700",fontSize:"15px"}}>التحقق بخطوتين {userData?.twoFactor?"مفعّل":"معطّل"}</div>
-            <div style={{color:T.textSec,fontSize:"13px",lineHeight:"1.7"}}>عند التفعيل، يُرسل رمز تحقق لبوت DFGFD عند الدخول من جهاز جديد</div>
             <PBtn color={userData?.twoFactor?T.danger:T.gold} onClick={async()=>{
               const nv=!userData?.twoFactor;
               await update(ref(db,`users/${user.uid}`),{twoFactor:nv});
               const s=await get(ref(db,`users/${user.uid}`));if(s.exists())setUserData(s.val());
               const botId=`bot_${user.uid}`;const nid=uidGen();
-              await set(ref(db,`messages/${botId}/${nid}`),{id:nid,chatId:botId,text:`🔐 تم ${nv?"تفعيل":"إلغاء"} التحقق بخطوتين\n🕐 ${nowFull()}`,from:APP_BOT_ID,senderName:"DFGFD",time:nowStr(),type:"text",isBot:true,createdAt:Date.now()});
+              await set(ref(db,`messages/${botId}/${nid}`),{id:nid,chatId:botId,text:`🔐 تم ${nv?"تفعيل":"إلغاء"} التحقق بخطوتين\n🕐 ${nowFull()}`,from:APP_BOT_ID,senderName:"DFGFD",time:nowStr(),type:"text",isOfficialBot:true,createdAt:Date.now()});
               setModal(null);
             }}>{userData?.twoFactor?"🔓 إلغاء التفعيل":"🔒 تفعيل"}</PBtn>
           </div>
+        </Modal>
+      )}
+
+      {modal==="changePass"&&(
+        <Modal title="تغيير كلمة المرور" onClose={()=>setModal(null)}>
+          <div style={{textAlign:"center",padding:"20px",color:T.textSec,fontSize:"14px",lineHeight:"1.7"}}>
+            <div style={{fontSize:"40px",marginBottom:"12px"}}>🔑</div>
+            سيتم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك:<br/>
+            <strong style={{color:T.text}}>{user?.email}</strong>
+          </div>
+          <PBtn onClick={async()=>{const {sendPasswordResetEmail}=await import("firebase/auth");await sendPasswordResetEmail(auth,user?.email);alert("تم الإرسال! تحقق من بريدك.");setModal(null);}}>
+            📧 إرسال رابط إعادة التعيين
+          </PBtn>
         </Modal>
       )}
 
@@ -997,30 +1156,3 @@ export default function App() {
   );
 }
 
-function SupportWidget({user,userData,db,onClose}) {
-  const [msg,setMsg]=useState(""); const [loading,setLoading]=useState(false); const [sent,setSent]=useState(false);
-  const nowStr2=()=>new Date().toLocaleTimeString("ar-SA",{hour:"2-digit",minute:"2-digit"});
-  const uid2=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
-  const send=async()=>{
-    if(!msg.trim()||!user)return;
-    setLoading(true);
-    const tId=`ticket_${user.uid}`;const msgId=uid2();
-    await set(ref(db,`support/${tId}/info`),{userId:user.uid,username:userData?.username,displayName:userData?.displayName,status:"open",createdAt:Date.now()});
-    await set(ref(db,`support/${tId}/messages/${msgId}`),{id:msgId,text:msg.trim(),from:user.uid,time:nowStr2(),createdAt:Date.now()});
-    try {
-      const res=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:500,system:"أنت مساعد دعم فني لتطبيق تيرمين. أجب باللغة العربية بشكل مفيد ومختصر.",messages:[{role:"user",content:msg.trim()}]})});
-      const data=await res.json();
-      const aiText=data.content?.[0]?.text||"شكراً لتواصلك! سيتم الرد قريباً.";
-      const aiId=uid2();
-      await set(ref(db,`support/${tId}/messages/${aiId}`),{id:aiId,text:aiText,from:"ai_bot",time:nowStr2(),createdAt:Date.now()+1});
-    }catch{}
-    setSent(true);setLoading(false);
-  };
-  if(sent)return<div style={{textAlign:"center",padding:"20px",display:"flex",flexDirection:"column",gap:"14px",alignItems:"center"}}><div style={{fontSize:"48px"}}>✅</div><div style={{color:"#e8f4fd",fontWeight:"700",fontSize:"15px"}}>تم إرسال طلبك!</div><button onClick={onClose} style={{background:"#5288c1",border:"none",borderRadius:"10px",padding:"11px 24px",color:"#fff",cursor:"pointer",fontFamily:"inherit",fontWeight:"700",fontSize:"14px"}}>حسناً</button></div>;
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:"12px"}}>
-      <textarea value={msg} onChange={e=>setMsg(e.target.value)} placeholder="اكتب مشكلتك أو سؤالك..." rows={4} style={{background:"#1c2d3d",border:"1px solid #0d182244",borderRadius:"12px",padding:"12px 14px",color:"#e8f4fd",fontSize:"14px",outline:"none",direction:"rtl",fontFamily:"inherit",resize:"none"}} onFocus={e=>e.target.style.borderColor="#5288c1"} onBlur={e=>e.target.style.borderColor="#0d182244"}/>
-      <PBtn onClick={send} loading={loading}>📨 إرسال للدعم الفني</PBtn>
-    </div>
-  );
-}
