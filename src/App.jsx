@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut, updateProfile } from "firebase/auth";
@@ -354,6 +355,8 @@ export default function App() {
   const [search,setSearch]=useState("");
   const [searchResults,setSearchResults]=useState([]);
   const [searchMode,setSearchMode]=useState(false);
+  const [cachedUsers,setCachedUsers]=useState([]);
+  const [cachedChats,setCachedChats]=useState([]);
   const [showMenu,setShowMenu]=useState(false);
   const [showSidebar,setShowSidebar]=useState(true);
   const [showEmoji,setShowEmoji]=useState(false);
@@ -446,33 +449,37 @@ export default function App() {
 
   useEffect(()=>{endRef.current?.scrollIntoView({behavior:"smooth"});},[messages]);
 
-  // Smart search - instant, sorted by relevance
+  // Preload all users & chats for instant search
+  useEffect(()=>{
+    if(!user) return;
+    const loadCache=async()=>{
+      const [uSnap,cSnap]=await Promise.all([get(ref(db,"users")),get(ref(db,"chats"))]);
+      if(uSnap.exists()) setCachedUsers(Object.values(uSnap.val()));
+      if(cSnap.exists()) setCachedChats(Object.values(cSnap.val()));
+    };
+    loadCache();
+    const interval=setInterval(loadCache,30000);
+    return()=>clearInterval(interval);
+  },[user]);
+
+  // Instant search from cache
   useEffect(()=>{
     if(!search.trim()||!searchMode){setSearchResults([]);return;}
     const q=search.toLowerCase().replace("@","").trim();
-    let timer=null;
-    const doSearch=async()=>{
-      const results=[];
-      const [uSnap,cSnap]=await Promise.all([get(ref(db,"users")),get(ref(db,"chats"))]);
-      if(uSnap.exists()){
-        Object.values(uSnap.val()).forEach(u=>{
-          const score=searchScore(u,q);
-          if(score>0) results.push({...u,resultType:"user",_score:score});
-        });
-      }
-      if(cSnap.exists()){
-        Object.values(cSnap.val()).forEach(c=>{
-          if(!["channel","group","official_bot","bot"].includes(c.type)) return;
-          const score=searchScore(c,q);
-          if(score>0) results.push({...c,resultType:c.type,_score:score});
-        });
-      }
-      results.sort((a,b)=>b._score-a._score);
-      setSearchResults(results.slice(0,20));
-    };
-    timer=setTimeout(doSearch,150);
-    return()=>clearTimeout(timer);
-  },[search,searchMode]);
+    const results=[];
+    cachedUsers.forEach(u=>{
+      if(u.uid===user?.uid) return;
+      const score=searchScore(u,q);
+      if(score>0) results.push({...u,resultType:"user",_score:score});
+    });
+    cachedChats.forEach(c=>{
+      if(!["channel","group","official_bot","bot"].includes(c.type)) return;
+      const score=searchScore(c,q);
+      if(score>0) results.push({...c,resultType:c.type,_score:score});
+    });
+    results.sort((a,b)=>b._score-a._score);
+    setSearchResults(results.slice(0,25));
+  },[search,searchMode,cachedUsers,cachedChats,user]);
 
   const openChat=useCallback(async(chatId,chatDataOverride=null)=>{
     setActiveChat(chatId);
@@ -625,10 +632,17 @@ export default function App() {
 
   const createConvo=useCallback(async(type)=>{
     if(!newForm.name.trim()||!user||!userData) return;
-    if(newForm.username){
-      if(newForm.username.length<5){alert("اسم المستخدم 5 أحرف على الأقل");return;}
-      if(/^\d/.test(newForm.username)){alert("اسم المستخدم لا يبدأ برقم");return;}
-    }
+    if(!newForm.username.trim()){alert("يجب إدخال اسم مستخدم للقناة/المجموعة");return;}
+    if(newForm.username.length<5){alert("اسم المستخدم 5 أحرف على الأقل");return;}
+    if(/^\d/.test(newForm.username)){alert("اسم المستخدم لا يبدأ برقم");return;}
+    if(!/^[a-zA-Z][a-zA-Z0-9_]{4,}$/.test(newForm.username)){alert("حروف وأرقام وشرطة سفلية فقط، يبدأ بحرف");return;}
+    // Check username uniqueness across users AND chats
+    const [uCheck,cCheck]=await Promise.all([
+      get(ref(db,`usernames/${newForm.username.toLowerCase()}`)),
+      get(ref(db,`chatUsernames/${newForm.username.toLowerCase()}`))
+    ]);
+    if(uCheck.exists()){alert(`اسم المستخدم @${newForm.username} مأخوذ مسبقاً`);return;}
+    if(cCheck.exists()){alert(`اسم المستخدم @${newForm.username} مأخوذ مسبقاً من قناة أو مجموعة`);return;}
     const chatId=uidGen();
     const chatData={id:chatId,type,name:newForm.name.trim(),username:(newForm.username||chatId.slice(0,8)).toLowerCase(),bio:newForm.bio||"",photoURL:"",ownerId:user.uid,members:[user.uid],admins:[user.uid],verified:false,createdAt:Date.now(),...(type==="channel"?{subscribers:1,subscribersList:[user.uid]}:{})};
     await set(ref(db,`chats/${chatId}`),chatData);
@@ -715,10 +729,9 @@ export default function App() {
           <div key={i} style={{display:"flex",alignItems:"center",gap:"12px",padding:"10px 14px",cursor:"pointer",borderBottom:`1px solid ${T.border}18`,transition:"background 0.15s"}}
             onMouseEnter={e=>e.currentTarget.style.background=T.hover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}
             onClick={()=>{
-              if(isU) openPrivateChat(r);
-              else if(isCh) joinChannel(r);
-              else if(isBot) openChat(r.id,r);
-              else openChat(r.id,r);
+              if(isU){ openPrivateChat(r); setSearchMode(false); setSearch(""); }
+              else if(isCh){ joinChannel(r); setSearchMode(false); setSearch(""); }
+              else { openChat(r.id,r); setSearchMode(false); setSearch(""); }
             }}>
             <Av name={r.name||r.displayName} color={r.color||rColor(r.name||r.displayName)} size={46} verified={r.verified} photo={r.photoURL} fraud={r.isFraud}/>
             <div style={{flex:1}}>
@@ -1155,4 +1168,3 @@ export default function App() {
     </div>
   );
 }
-
